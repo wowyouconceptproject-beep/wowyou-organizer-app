@@ -8,6 +8,8 @@ import "../models/staff.dart";
 
 import "../services/auth_service.dart";
 
+import "../utils/storage.dart";
+
 import "realtime_provider.dart";
 
 class AuthProvider extends ChangeNotifier {
@@ -48,7 +50,31 @@ class AuthProvider extends ChangeNotifier {
 
       event = result.event;
 
+      /*
+      |--------------------------------------------------------------------------
+      | Persist JWT Securely
+      |--------------------------------------------------------------------------
+      */
+
+      if (token != null) {
+        await Storage.saveToken(
+          token!,
+        );
+      }
+
+      /*
+      |--------------------------------------------------------------------------
+      | Persist Session
+      |--------------------------------------------------------------------------
+      */
+
       await _persistSession();
+
+      /*
+      |--------------------------------------------------------------------------
+      | Connect Realtime
+      |--------------------------------------------------------------------------
+      */
 
       if (event != null) {
         realtime.connect(
@@ -76,16 +102,26 @@ class AuthProvider extends ChangeNotifier {
     try {
       await _service.logout();
     } catch (_) {
-      // Ignore logout API errors.
+      // Ignore API logout failures.
     }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Remove Secure JWT
+    |--------------------------------------------------------------------------
+    */
+
+    await Storage.clear();
+
+    /*
+    |--------------------------------------------------------------------------
+    | Remove Cached Models
+    |--------------------------------------------------------------------------
+    */
 
     final prefs =
         await SharedPreferences
             .getInstance();
-
-    await prefs.remove(
-      "token",
-    );
 
     await prefs.remove(
       "staff",
@@ -98,7 +134,7 @@ class AuthProvider extends ChangeNotifier {
     clear();
   }
 
-  /*
+    /*
   |--------------------------------------------------------------------------
   | Restore Session
   |--------------------------------------------------------------------------
@@ -111,10 +147,20 @@ class AuthProvider extends ChangeNotifier {
         await SharedPreferences
             .getInstance();
 
+    /*
+    |--------------------------------------------------------------------------
+    | JWT
+    |--------------------------------------------------------------------------
+    */
+
     final savedToken =
-        prefs.getString(
-      "token",
-    );
+        await Storage.getToken();
+
+    /*
+    |--------------------------------------------------------------------------
+    | Cached Models
+    |--------------------------------------------------------------------------
+    */
 
     final savedStaff =
         prefs.getString(
@@ -169,14 +215,25 @@ class AuthProvider extends ChangeNotifier {
       return;
     }
 
+    /*
+    |--------------------------------------------------------------------------
+    | Secure JWT
+    |--------------------------------------------------------------------------
+    */
+
+    await Storage.saveToken(
+      token!,
+    );
+
+    /*
+    |--------------------------------------------------------------------------
+    | Cached Models
+    |--------------------------------------------------------------------------
+    */
+
     final prefs =
         await SharedPreferences
             .getInstance();
-
-    await prefs.setString(
-      "token",
-      token!,
-    );
 
     await prefs.setString(
       "staff",

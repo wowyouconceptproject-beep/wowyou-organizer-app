@@ -1,4 +1,3 @@
-import "../models/announcement.dart";
 import "package:socket_io_client/socket_io_client.dart"
     as io;
 
@@ -6,9 +5,13 @@ import "../config/api.dart";
 import "../config/socket_events.dart";
 
 import "../models/activity_event.dart";
+import "../models/announcement.dart";
 import "../models/attendance_update.dart";
+import "../models/capacity_update.dart";
 import "../models/notification_event.dart";
 import "../models/staff_presence.dart";
+
+import "../utils/storage.dart";
 
 class SocketService {
   SocketService._();
@@ -18,10 +21,12 @@ class SocketService {
 
   io.Socket? _socket;
 
-  io.Socket? get socket => _socket;
+  io.Socket? get socket =>
+      _socket;
 
   bool get connected =>
-      _socket?.connected ?? false;
+      _socket?.connected ??
+      false;
 
   /*
   |--------------------------------------------------------------------------
@@ -29,10 +34,13 @@ class SocketService {
   |--------------------------------------------------------------------------
   */
 
-  void connect() {
+  Future<void> connect() async {
     if (_socket != null) {
       return;
     }
+
+    final token =
+        await Storage.getToken();
 
     _socket = io.io(
       ApiConfig.baseUrl,
@@ -47,6 +55,9 @@ class SocketService {
           .setReconnectionDelay(
             1000,
           )
+          .setAuth({
+            "token": token,
+          })
           .build(),
     );
 
@@ -54,6 +65,8 @@ class SocketService {
   }
 
   void disconnect() {
+    _socket?.clearListeners();
+
     _socket?.disconnect();
 
     _socket?.dispose();
@@ -67,12 +80,18 @@ class SocketService {
   |--------------------------------------------------------------------------
   */
 
-  void joinEvent(
+  Future<void> joinEvent(
     String eventId,
-  ) {
+  ) async {
+    final jwt =
+        await Storage.getToken();
+
     _socket?.emit(
-      "join-event",
-      eventId,
+      SocketEvents.joinEvent,
+      {
+        "eventId": eventId,
+        "token": jwt,
+      },
     );
   }
 
@@ -80,8 +99,33 @@ class SocketService {
     String eventId,
   ) {
     _socket?.emit(
-      "leave-event",
+      SocketEvents.leaveEvent,
       eventId,
+    );
+  }
+
+  Future<void> joinOrganizer(
+    String organizerId,
+  ) async {
+    final jwt =
+        await Storage.getToken();
+
+    _socket?.emit(
+      SocketEvents.joinOrganizer,
+      {
+        "organizerId":
+            organizerId,
+        "token": jwt,
+      },
+    );
+  }
+
+  void leaveOrganizer(
+    String organizerId,
+  ) {
+    _socket?.emit(
+      SocketEvents.leaveOrganizer,
+      organizerId,
     );
   }
 
@@ -101,6 +145,31 @@ class SocketService {
       (data) {
         listener(
           AttendanceUpdate.fromJson(
+            Map<String, dynamic>.from(
+              data,
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  /*
+  |--------------------------------------------------------------------------
+  | Capacity
+  |--------------------------------------------------------------------------
+  */
+
+  void onCapacityUpdated(
+    Function(
+      CapacityUpdate,
+    ) listener,
+  ) {
+    _socket?.on(
+      SocketEvents.capacityUpdated,
+      (data) {
+        listener(
+          CapacityUpdate.fromJson(
             Map<String, dynamic>.from(
               data,
             ),
@@ -147,7 +216,8 @@ class SocketService {
     ) listener,
   ) {
     _socket?.on(
-      SocketEvents.announcementCreated,
+      SocketEvents
+          .announcementCreated,
       (data) {
         listener(
           Announcement.fromJson(
@@ -166,7 +236,8 @@ class SocketService {
     ) listener,
   ) {
     _socket?.on(
-      SocketEvents.announcementUpdated,
+      SocketEvents
+          .announcementUpdated,
       (data) {
         listener(
           Announcement.fromJson(
@@ -185,10 +256,12 @@ class SocketService {
     ) listener,
   ) {
     _socket?.on(
-      SocketEvents.announcementDeleted,
+      SocketEvents
+          .announcementDeleted,
       (data) {
         listener(
-          data["id"].toString(),
+          data["id"]
+              .toString(),
         );
       },
     );
@@ -196,7 +269,7 @@ class SocketService {
 
   /*
   |--------------------------------------------------------------------------
-  | Staff Presence
+  | Staff
   |--------------------------------------------------------------------------
   */
 
@@ -265,7 +338,7 @@ class SocketService {
 
   /*
   |--------------------------------------------------------------------------
-  | Socket Lifecycle
+  | Lifecycle
   |--------------------------------------------------------------------------
   */
 

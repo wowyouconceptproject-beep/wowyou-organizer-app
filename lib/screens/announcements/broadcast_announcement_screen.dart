@@ -15,9 +15,11 @@ class BroadcastAnnouncementScreen extends StatefulWidget {
 
 class _BroadcastAnnouncementScreenState
     extends State<BroadcastAnnouncementScreen> {
-  final title = TextEditingController();
+  final title =
+      TextEditingController();
 
-  final message = TextEditingController();
+  final message =
+      TextEditingController();
 
   String type = "INFO";
 
@@ -30,7 +32,9 @@ class _BroadcastAnnouncementScreenState
   @override
   void dispose() {
     title.dispose();
+
     message.dispose();
+
     super.dispose();
   }
 
@@ -48,13 +52,22 @@ class _BroadcastAnnouncementScreenState
         ),
       ),
       body: ListView(
-        padding: const EdgeInsets.all(
+        padding:
+            const EdgeInsets.all(
           20,
         ),
         children: [
+
+          /*
+          |--------------------------------------------------------------------------
+          | Title
+          |--------------------------------------------------------------------------
+          */
+
           TextField(
             controller: title,
-            decoration: const InputDecoration(
+            decoration:
+                const InputDecoration(
               labelText: "Title",
             ),
           ),
@@ -63,10 +76,17 @@ class _BroadcastAnnouncementScreenState
             height: 16,
           ),
 
+          /*
+          |--------------------------------------------------------------------------
+          | Message
+          |--------------------------------------------------------------------------
+          */
+
           TextField(
             controller: message,
             maxLines: 5,
-            decoration: const InputDecoration(
+            decoration:
+                const InputDecoration(
               labelText: "Message",
             ),
           ),
@@ -75,31 +95,55 @@ class _BroadcastAnnouncementScreenState
             height: 20,
           ),
 
+          /*
+          |--------------------------------------------------------------------------
+          | Type
+          |--------------------------------------------------------------------------
+          */
+
           DropdownButtonFormField<String>(
-            initialValue: type,
+            value: type,
+            decoration:
+                const InputDecoration(
+              labelText: "Type",
+            ),
             items: const [
+
               DropdownMenuItem(
                 value: "INFO",
-                child: Text("Info"),
+                child: Text(
+                  "Info",
+                ),
               ),
+
               DropdownMenuItem(
                 value: "SUCCESS",
-                child: Text("Success"),
+                child: Text(
+                  "Success",
+                ),
               ),
+
               DropdownMenuItem(
                 value: "WARNING",
-                child: Text("Warning"),
+                child: Text(
+                  "Warning",
+                ),
               ),
+
               DropdownMenuItem(
                 value: "EMERGENCY",
-                child: Text("Emergency"),
+                child: Text(
+                  "Emergency",
+                ),
               ),
             ],
-            onChanged: (v) {
-              if (v == null) return;
+            onChanged: (value) {
+              if (value == null) {
+                return;
+              }
 
               setState(() {
-                type = v;
+                type = value;
               });
             },
           ),
@@ -108,31 +152,55 @@ class _BroadcastAnnouncementScreenState
             height: 16,
           ),
 
+          /*
+          |--------------------------------------------------------------------------
+          | Priority
+          |--------------------------------------------------------------------------
+          */
+
           DropdownButtonFormField<String>(
-            initialValue: priority,
+            value: priority,
+            decoration:
+                const InputDecoration(
+              labelText: "Priority",
+            ),
             items: const [
+
               DropdownMenuItem(
                 value: "LOW",
-                child: Text("Low"),
+                child: Text(
+                  "Low",
+                ),
               ),
+
               DropdownMenuItem(
                 value: "NORMAL",
-                child: Text("Normal"),
+                child: Text(
+                  "Normal",
+                ),
               ),
+
               DropdownMenuItem(
                 value: "HIGH",
-                child: Text("High"),
+                child: Text(
+                  "High",
+                ),
               ),
+
               DropdownMenuItem(
                 value: "CRITICAL",
-                child: Text("Critical"),
+                child: Text(
+                  "Critical",
+                ),
               ),
             ],
-            onChanged: (v) {
-              if (v == null) return;
+            onChanged: (value) {
+              if (value == null) {
+                return;
+              }
 
               setState(() {
-                priority = v;
+                priority = value;
               });
             },
           ),
@@ -141,43 +209,77 @@ class _BroadcastAnnouncementScreenState
             height: 16,
           ),
 
+          /*
+          |--------------------------------------------------------------------------
+          | Audience
+          |--------------------------------------------------------------------------
+          */
+
           DropdownButtonFormField<String>(
-            initialValue: audience,
+            value: audience,
+            decoration:
+                const InputDecoration(
+              labelText: "Audience",
+            ),
             items: const [
+
               DropdownMenuItem(
                 value: "ALL",
-                child: Text("Everyone"),
+                child: Text(
+                  "Everyone",
+                ),
               ),
+
               DropdownMenuItem(
                 value: "ATTENDEES",
-                child: Text("Attendees"),
+                child: Text(
+                  "Attendees",
+                ),
               ),
+
               DropdownMenuItem(
                 value: "STAFF",
-                child: Text("Staff"),
+                child: Text(
+                  "Staff",
+                ),
               ),
+
               DropdownMenuItem(
                 value: "ORGANIZERS",
-                child: Text("Organizers"),
+                child: Text(
+                  "Organizers",
+                ),
               ),
             ],
-            onChanged: (v) {
-              if (v == null) return;
+            onChanged: (value) {
+              if (value == null) {
+                return;
+              }
 
               setState(() {
-                audience = v;
+                audience = value;
               });
             },
           ),
+
+          const SizedBox(
+            height: 12,
+          ),
+
+          /*
+          |--------------------------------------------------------------------------
+          | Pin
+          |--------------------------------------------------------------------------
+          */
 
           SwitchListTile(
             title: const Text(
               "Pin Announcement",
             ),
             value: pinned,
-            onChanged: (v) {
+            onChanged: (value) {
               setState(() {
-                pinned = v;
+                pinned = value;
               });
             },
           ),
@@ -186,18 +288,31 @@ class _BroadcastAnnouncementScreenState
             height: 24,
           ),
 
+          /*
+          |--------------------------------------------------------------------------
+          | Submit
+          |--------------------------------------------------------------------------
+          */
+
           FilledButton(
             onPressed: () async {
               final navigator =
-                  Navigator.of(context);
+                  Navigator.of(
+                context,
+              );
 
               await provider.create(
-                title: title.text,
-                message: message.text,
+                title:
+                    title.text.trim(),
+                message:
+                    message.text.trim(),
                 type: type,
-                priority: priority,
-                audience: audience,
-                isPinned: pinned,
+                priority:
+                    priority,
+                audience:
+                    audience,
+                isPinned:
+                    pinned,
               );
 
               if (!mounted) {

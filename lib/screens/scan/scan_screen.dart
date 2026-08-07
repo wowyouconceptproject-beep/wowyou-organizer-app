@@ -9,9 +9,9 @@ import "../../providers/scan_provider.dart";
 import "../../widgets/camera_overlay.dart";
 import "../../widgets/error_flash.dart";
 import "../../widgets/scan_beep.dart";
+import "../../widgets/success_flash.dart";
 import "../../widgets/scanner_controls.dart";
 import "../../widgets/scanner_status_bar.dart";
-import "../../widgets/success_flash.dart";
 
 import "qr_camera.dart";
 import "scan_result_card.dart";
@@ -29,9 +29,52 @@ class ScanScreen extends StatelessWidget {
   }
 }
 
-class _ScanView
-    extends StatelessWidget {
+class _ScanView extends StatefulWidget {
   const _ScanView();
+
+  @override
+  State<_ScanView> createState() =>
+      _ScanViewState();
+}
+
+class _ScanViewState
+    extends State<_ScanView> {
+
+  @override
+  void initState() {
+    super.initState();
+
+    WidgetsBinding.instance
+        .addPostFrameCallback(
+      (_) async {
+        final auth =
+            context.read<AuthProvider>();
+
+        final scan =
+            context.read<ScanProvider>();
+
+        if (auth.event != null) {
+          await scan.connectSocket(
+            auth.event!.id,
+          );
+        }
+
+        await scan.startNfcListener();
+      },
+    );
+  }
+
+  @override
+  void dispose() {
+    final scan =
+        context.read<ScanProvider>();
+
+    scan.disconnectSocket();
+
+    scan.stopNfcListener();
+
+    super.dispose();
+  }
 
   @override
   Widget build(
@@ -48,19 +91,18 @@ class _ScanView
 
       appBar: AppBar(
         backgroundColor: Colors.white,
-        surfaceTintColor:
-            Colors.white,
+        surfaceTintColor: Colors.white,
         elevation: 0,
-        titleSpacing: 16,
 
         title: Column(
           crossAxisAlignment:
               CrossAxisAlignment.start,
+
           children: [
+
             const Text(
               "Scan Pass",
               style: TextStyle(
-                color: Colors.black,
                 fontSize: 22,
                 fontWeight:
                     FontWeight.bold,
@@ -68,14 +110,12 @@ class _ScanView
             ),
 
             if (auth.event != null)
+
               Text(
                 auth.event!.title,
                 style:
                     const TextStyle(
                   color: Colors.grey,
-                  fontSize: 14,
-                  fontWeight:
-                      FontWeight.w500,
                 ),
               ),
           ],
@@ -105,14 +145,20 @@ class _ScanView
                             !scan.busy,
 
                         onScanned:
-                            (token) async {
+                            (
+                          token,
+                        ) async {
 
                           HapticFeedback
                               .lightImpact();
 
-                          await scan.scan(
+                          await scan.scanQr(
                             token,
                           );
+
+                          if (!mounted) {
+                            return;
+                          }
 
                           if (scan.result !=
                               null) {
@@ -132,7 +178,8 @@ class _ScanView
                     ),
 
                     Positioned.fill(
-                      child: SuccessFlash(
+                      child:
+                          SuccessFlash(
                         visible:
                             scan.result !=
                                 null,
@@ -140,7 +187,8 @@ class _ScanView
                     ),
 
                     Positioned.fill(
-                      child: ErrorFlash(
+                      child:
+                          ErrorFlash(
                         visible:
                             scan.error !=
                                 null,
@@ -159,7 +207,7 @@ class _ScanView
               ),
             ),
 
-            Container(
+                        Container(
               padding:
                   const EdgeInsets.all(
                 20,
@@ -179,7 +227,77 @@ class _ScanView
               ),
 
               child: Column(
+                crossAxisAlignment:
+                    CrossAxisAlignment
+                        .stretch,
+
                 children: [
+
+                  /*
+                  |--------------------------------------------------------------------------
+                  | NFC Status
+                  |--------------------------------------------------------------------------
+                  */
+
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 12,
+                    ),
+
+                    decoration:
+                        BoxDecoration(
+                      color:
+                          const Color(
+                        0xffF7F7F7,
+                      ),
+
+                      borderRadius:
+                          BorderRadius.circular(
+                        12,
+                      ),
+                    ),
+
+                    child: Row(
+                      children: [
+
+                        Icon(
+                          Icons.nfc,
+                          color: scan.busy
+                              ? Colors.orange
+                              : Colors.green,
+                        ),
+
+                        const SizedBox(
+                          width: 12,
+                        ),
+
+                        Expanded(
+                          child: Text(
+                            scan.busy
+                                ? "Scanning..."
+                                : "NFC Ready • Hold pass near device",
+                            style:
+                                const TextStyle(
+                              fontWeight:
+                                  FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  const SizedBox(
+                    height: 16,
+                  ),
+
+                  /*
+                  |--------------------------------------------------------------------------
+                  | Scanner Status
+                  |--------------------------------------------------------------------------
+                  */
 
                   ScannerStatusBar(
                     busy: scan.busy,
@@ -190,6 +308,12 @@ class _ScanView
                     height: 16,
                   ),
 
+                  /*
+                  |--------------------------------------------------------------------------
+                  | Controls
+                  |--------------------------------------------------------------------------
+                  */
+
                   ScannerControls(
                     torchOn:
                         scan.torchOn,
@@ -199,27 +323,70 @@ class _ScanView
 
                     onManualSearch:
                         () {
-
-                      // TODO
-                      // Navigator.pushNamed(
-                      //   context,
-                      //   "/manual-search",
-                      // );
-
-                    },
+                          // TODO
+                        },
                   ),
 
-                  const SizedBox(
-                    height: 20,
-                  ),
+                  if (scan.result != null &&
+                      scan.result!
+                          .alreadyCheckedIn) ...[
 
-                  if (scan.result !=
-                      null)
+                    const SizedBox(
+                      height: 20,
+                    ),
 
                     Container(
-                      width:
-                          double.infinity,
+                      padding:
+                          const EdgeInsets.all(
+                        16,
+                      ),
 
+                      decoration:
+                          BoxDecoration(
+                        color:
+                            const Color(
+                          0xffFFF4E5,
+                        ),
+
+                        borderRadius:
+                            BorderRadius.circular(
+                          12,
+                        ),
+                      ),
+
+                      child: const Row(
+                        children: [
+
+                          Icon(
+                            Icons.warning,
+                            color: Colors.orange,
+                          ),
+
+                          SizedBox(
+                            width: 12,
+                          ),
+
+                          Expanded(
+                            child: Text(
+                              "Attendee already checked in.",
+                              style: TextStyle(
+                                fontWeight:
+                                    FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+
+                  if (scan.capacity != null) ...[
+
+                    const SizedBox(
+                      height: 20,
+                    ),
+
+                    Container(
                       padding:
                           const EdgeInsets.all(
                         16,
@@ -246,36 +413,47 @@ class _ScanView
                         children: [
 
                           const Text(
-                            "Attendance",
-                            style:
-                                TextStyle(
+                            "Live Capacity",
+                            style: TextStyle(
+                              fontSize: 16,
                               fontWeight:
-                                  FontWeight
-                                      .w600,
+                                  FontWeight.bold,
                             ),
                           ),
 
                           const SizedBox(
-                            height: 8,
+                            height: 10,
                           ),
 
                           Text(
-                            "${scan.result!.attendance} / ${scan.result!.totalTickets}",
+                            "${scan.capacity!.currentOccupancy} / ${scan.capacity!.capacity}",
                             style:
                                 const TextStyle(
                               fontSize: 30,
                               fontWeight:
-                                  FontWeight
-                                      .bold,
+                                  FontWeight.bold,
+                            ),
+                          ),
+
+                          const SizedBox(
+                            height: 4,
+                          ),
+
+                          Text(
+                            "${scan.capacity!.occupancyPercentage.toStringAsFixed(1)}%",
+                            style:
+                                const TextStyle(
+                              color: Colors.grey,
                             ),
                           ),
                         ],
                       ),
                     ),
+                  ],
                 ],
               ),
             ),
-          ],
+                      ],
         ),
       ),
     );

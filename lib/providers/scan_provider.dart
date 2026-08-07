@@ -1,15 +1,29 @@
-import "dart:async";
-
 import "package:flutter/material.dart";
 import "package:mobile_scanner/mobile_scanner.dart";
 
+import "../models/capacity_update.dart";
 import "../models/scan_result.dart";
-import "../services/scan_service.dart";
+
+import "../services/nfc_service.dart";
+import "../services/pass_service.dart";
+import "../services/socket_service.dart";
 
 class ScanProvider extends ChangeNotifier {
-  final ScanService _service = ScanService();
+  final PassService _passService =
+      PassService();
 
-  /// Camera controller
+  final SocketService _socket =
+      SocketService.instance;
+
+  final NfcService _nfc =
+      NfcService();
+
+  /*
+  |--------------------------------------------------------------------------
+  | Camera
+  |--------------------------------------------------------------------------
+  */
+
   final MobileScannerController camera =
       MobileScannerController();
 
@@ -23,9 +37,63 @@ class ScanProvider extends ChangeNotifier {
 
   ScanResult? result;
 
+  CapacityUpdate? capacity;
+
   /*
   |--------------------------------------------------------------------------
-  | Toggle Flashlight
+  | Socket
+  |--------------------------------------------------------------------------
+  */
+
+  Future<void> connectSocket(
+    String eventId,
+  ) async {
+    _socket.connect();
+
+    await _socket.joinEvent(
+      eventId,
+    );
+
+    _socket.onCapacityUpdated(
+      (update) {
+        capacity = update;
+        notifyListeners();
+      },
+    );
+  }
+
+  void disconnectSocket() {
+    _socket.clearListeners();
+
+    _socket.disconnect();
+  }
+
+  /*
+  |--------------------------------------------------------------------------
+  | NFC
+  |--------------------------------------------------------------------------
+  */
+
+  Future<void> startNfcListener() async {
+    await _nfc.startListening(
+      onDiscovered: (
+        token,
+      ) async {
+        await onTokenDetected(
+          token,
+          scanType: "NFC",
+        );
+      },
+    );
+  }
+
+  Future<void> stopNfcListener() async {
+    await _nfc.stopListening();
+  }
+
+  /*
+  |--------------------------------------------------------------------------
+  | Torch
   |--------------------------------------------------------------------------
   */
 
@@ -39,28 +107,101 @@ class ScanProvider extends ChangeNotifier {
 
   /*
   |--------------------------------------------------------------------------
-  | Scan QR
+  | QR
   |--------------------------------------------------------------------------
   */
 
-  Future<void> scan(
-    String qrToken,
+  Future<void> scanQr(
+    String token,
   ) async {
+    await onTokenDetected(
+      token,
+      scanType: "QR",
+    );
+  }
+
+  /*
+  |--------------------------------------------------------------------------
+  | NFC
+  |--------------------------------------------------------------------------
+  */
+
+  Future<void> scanNfc(
+    String token,
+  ) async {
+    await onTokenDetected(
+      token,
+      scanType: "NFC",
+    );
+  }
+
+  /*
+  |--------------------------------------------------------------------------
+  | Unified Entry
+  |--------------------------------------------------------------------------
+  */
+
+  Future<void> onTokenDetected(
+    String token, {
+    required String scanType,
+    String? station,
+    String? deviceId,
+  }) async {
     if (busy) {
       return;
     }
 
+    await _performCheckIn(
+      token,
+      scanType: scanType,
+      station: station,
+      deviceId: deviceId,
+    );
+  }
+
+  /*
+  |--------------------------------------------------------------------------
+  | Check In
+  |--------------------------------------------------------------------------
+  */
+
+  Future<void> _performCheckIn(
+    String token, {
+    required String scanType,
+    String? station,
+    String? deviceId,
+  }) async {
     busy = true;
+
     scanning = true;
+
     error = null;
+
     result = null;
 
     notifyListeners();
 
     try {
-      result = await _service.scan(
-        qrToken,
+      final response =
+          await _passService.checkIn(
+        token,
+        scanType: scanType,
+        station: station,
+        deviceId: deviceId,
       );
+
+      result =
+          ScanResult.fromJson(
+        response,
+      );
+
+      if (response["capacity"] !=
+          null) {
+        capacity =
+            CapacityUpdate.fromJson(
+          response["capacity"],
+        );
+      }
     } catch (e) {
       error = e
           .toString()
@@ -89,8 +230,11 @@ class ScanProvider extends ChangeNotifier {
 
   void clear() {
     busy = false;
+
     scanning = false;
+
     result = null;
+
     error = null;
 
     notifyListeners();
@@ -98,7 +242,12 @@ class ScanProvider extends ChangeNotifier {
 
   @override
   void dispose() {
+    stopNfcListener();
+
+    disconnectSocket();
+
     camera.dispose();
+
     super.dispose();
   }
 }

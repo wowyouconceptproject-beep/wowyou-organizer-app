@@ -1,11 +1,7 @@
 class ScanResult {
   final bool success;
 
-  final int attendance;
-
-  final int totalTickets;
-
-  final int remaining;
+  final bool alreadyCheckedIn;
 
   final Attendee attendee;
 
@@ -13,45 +9,47 @@ class ScanResult {
 
   final EventSummary event;
 
+  final CheckedInBy? checkedInBy;
+
   ScanResult({
     required this.success,
-    required this.attendance,
-    required this.totalTickets,
-    required this.remaining,
+    required this.alreadyCheckedIn,
     required this.attendee,
     required this.ticket,
     required this.event,
+    this.checkedInBy,
   });
 
   factory ScanResult.fromJson(
     Map<String, dynamic> json,
   ) {
     return ScanResult(
-      success: json["success"],
+      success: json["success"] ?? false,
 
-      attendance:
-          json["attendance"],
+      alreadyCheckedIn:
+          json["alreadyCheckedIn"] ?? false,
 
-      totalTickets:
-          json["totalTickets"],
-
-      remaining:
-          json["remaining"],
-
-      attendee:
-          Attendee.fromJson(
-        json["attendee"],
+      attendee: Attendee.fromJson(
+        json["attendee"] ??
+            <String, dynamic>{},
       ),
 
-      ticket:
-          Ticket.fromJson(
-        json["ticket"],
+      ticket: Ticket.fromJson(
+        json["ticket"] ??
+            <String, dynamic>{},
       ),
 
-      event:
-          EventSummary.fromJson(
-        json["event"],
+      event: EventSummary.fromJson(
+        json["event"] ??
+            <String, dynamic>{},
       ),
+
+      checkedInBy:
+          json["checkedInBy"] == null
+              ? null
+              : CheckedInBy.fromJson(
+                  json["checkedInBy"],
+                ),
     );
   }
 }
@@ -76,20 +74,23 @@ class Attendee {
     Map<String, dynamic> json,
   ) {
     return Attendee(
-      id: json["id"],
+      id: json["id"] ?? "",
 
       firstName:
-          json["firstName"],
+          json["firstName"] ?? "",
 
       lastName:
-          json["lastName"],
+          json["lastName"] ?? "",
 
       email:
-          json["email"],
+          json["email"] ?? "",
     );
   }
 
   String get fullName =>
+      "$firstName $lastName";
+
+  String get name =>
       "$firstName $lastName";
 }
 
@@ -110,11 +111,13 @@ class Ticket {
     Map<String, dynamic> json,
   ) {
     return Ticket(
-      id: json["id"],
+      id: json["id"] ?? "",
 
-      name: json["name"],
+      name:
+          json["name"] ?? "",
 
-      price: json["price"],
+      price:
+          json["price"],
     );
   }
 }
@@ -136,12 +139,47 @@ class EventSummary {
     Map<String, dynamic> json,
   ) {
     return EventSummary(
-      id: json["id"],
+      id: json["id"] ?? "",
 
-      title: json["title"],
+      title:
+          json["title"] ?? "",
 
       currency:
-          json["currency"],
+          json["currency"] ?? "",
+    );
+  }
+}
+
+class CheckedInBy {
+  final String id;
+
+  final String name;
+
+  final String station;
+
+  final String checkedInAt;
+
+  CheckedInBy({
+    required this.id,
+    required this.name,
+    required this.station,
+    required this.checkedInAt,
+  });
+
+  factory CheckedInBy.fromJson(
+    Map<String, dynamic> json,
+  ) {
+    return CheckedInBy(
+      id: json["id"] ?? "",
+
+      name:
+          json["name"] ?? "",
+
+      station:
+          json["station"] ?? "",
+
+      checkedInAt:
+          json["checkedInAt"] ?? "",
     );
   }
 }

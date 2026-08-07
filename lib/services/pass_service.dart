@@ -7,6 +7,12 @@ import "../config/api.dart";
 import "../utils/storage.dart";
 
 class PassService {
+  /*
+  |--------------------------------------------------------------------------
+  | Verify Pass
+  |--------------------------------------------------------------------------
+  */
+
   Future<Map<String, dynamic>>
       verifyPass(
     String token,
@@ -35,17 +41,26 @@ class PassService {
     );
   }
 
+  /*
+  |--------------------------------------------------------------------------
+  | Check In
+  |--------------------------------------------------------------------------
+  */
+
   Future<Map<String, dynamic>>
       checkIn(
-    String token,
-  ) async {
+    String token, {
+    String scanType = "QR",
+    String? station,
+    String? deviceId,
+  }) async {
     final jwt =
         await Storage.getToken();
 
     final response =
         await http.post(
       Uri.parse(
-        "${ApiConfig.baseUrl}/passes/check-in",
+        "${ApiConfig.baseUrl}/checkin",
       ),
       headers: {
         "Content-Type":
@@ -55,6 +70,9 @@ class PassService {
       },
       body: jsonEncode({
         "token": token,
+        "scanType": scanType,
+        "station": station,
+        "deviceId": deviceId,
       }),
     );
 

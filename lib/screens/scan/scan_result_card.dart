@@ -9,232 +9,243 @@ class ScanResultCard extends StatelessWidget {
 
   const ScanResultCard({
     super.key,
-    this.result,
-    this.error,
+    required this.result,
+    required this.error,
   });
 
   @override
-  Widget build(BuildContext context) {
-    if (result == null && error == null) {
-      return const SizedBox.shrink();
-    }
-
-    final success = result != null;
-
-    return AnimatedPositioned(
-      duration: const Duration(
-        milliseconds: 250,
-      ),
-
-      left: 16,
-      right: 16,
-      top: 24,
-
-      child: Material(
-        elevation: 8,
-        borderRadius:
-            BorderRadius.circular(
-          16,
-        ),
-
+  Widget build(
+    BuildContext context,
+  ) {
+    if (error != null) {
+      return Align(
+        alignment: Alignment.topCenter,
         child: Container(
-          padding:
+          margin:
               const EdgeInsets.all(20),
 
-          decoration: BoxDecoration(
-            color: Colors.white,
+          padding:
+              const EdgeInsets.all(18),
+
+          decoration:
+              BoxDecoration(
+            color:
+                Colors.red.shade50,
 
             borderRadius:
                 BorderRadius.circular(
               16,
             ),
-
-            border: Border.all(
-              color: success
-                  ? Colors.green
-                  : Colors.red,
-              width: 2,
-            ),
           ),
 
-          child: success
-              ? _successCard(
-                  result!,
-                )
-              : _errorCard(
+          child: Row(
+            children: [
+
+              const Icon(
+                Icons.error_outline,
+                color: Colors.red,
+              ),
+
+              const SizedBox(
+                width: 12,
+              ),
+
+              Expanded(
+                child: Text(
                   error!,
                 ),
-        ),
-      ),
-    );
-  }
-
-  Widget _successCard(
-    ScanResult result,
-  ) {
-    return Column(
-      mainAxisSize:
-          MainAxisSize.min,
-
-      crossAxisAlignment:
-          CrossAxisAlignment.start,
-
-      children: [
-
-        const Text(
-          "CHECK-IN SUCCESS",
-          style: TextStyle(
-            fontSize: 22,
-            fontWeight:
-                FontWeight.bold,
-            color: Colors.green,
+              ),
+            ],
           ),
         ),
+      );
+    }
 
-        const SizedBox(
-          height: 20,
+    if (result == null) {
+      return const SizedBox();
+    }
+
+    return Align(
+      alignment: Alignment.topCenter,
+      child: Container(
+        margin:
+            const EdgeInsets.all(
+          20,
         ),
 
-        Text(
-          result.attendee.fullName,
-          style:
-              const TextStyle(
-            fontSize: 26,
-            fontWeight:
-                FontWeight.bold,
+        padding:
+            const EdgeInsets.all(
+          20,
+        ),
+
+        decoration:
+            BoxDecoration(
+          color:
+              Colors.white,
+
+          borderRadius:
+              BorderRadius.circular(
+            18,
           ),
+
+          boxShadow: const [
+
+            BoxShadow(
+              color:
+                  Colors.black12,
+
+              blurRadius: 12,
+            ),
+          ],
         ),
 
-        const SizedBox(
-          height: 6,
-        ),
+        child: Column(
+          mainAxisSize:
+              MainAxisSize.min,
 
-        Text(
-          result.ticket.name,
-          style:
-              const TextStyle(
-            fontSize: 18,
-            color:
-                Colors.black54,
-          ),
-        ),
+          crossAxisAlignment:
+              CrossAxisAlignment
+                  .start,
 
-        const SizedBox(
-          height: 24,
-        ),
-
-        Row(
           children: [
 
-            Expanded(
-              child:
-                  _statCard(
-                "Checked In",
-                result.attendance
-                    .toString(),
+            Row(
+              children: [
+
+                Icon(
+                  result!
+                          .alreadyCheckedIn
+                      ? Icons.warning
+                      : Icons
+                          .check_circle,
+
+                  color:
+                      result!.alreadyCheckedIn
+                          ? Colors.orange
+                          : Colors.green,
+                ),
+
+                const SizedBox(
+                  width: 12,
+                ),
+
+                Expanded(
+                  child: Text(
+                    result!
+                            .alreadyCheckedIn
+                        ? "Already Checked In"
+                        : "Check In Successful",
+
+                    style:
+                        const TextStyle(
+                      fontSize: 18,
+                      fontWeight:
+                          FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+
+            const SizedBox(
+              height: 20,
+            ),
+
+            Text(
+              result!
+                  .attendee.name,
+              style:
+                  const TextStyle(
+                fontSize: 22,
+                fontWeight:
+                    FontWeight.bold,
               ),
             ),
 
             const SizedBox(
-              width: 12,
+              height: 6,
             ),
 
-            Expanded(
-              child:
-                  _statCard(
-                "Remaining",
-                result.remaining
-                    .toString(),
-              ),
+            Text(
+              result!
+                  .attendee.email,
             ),
+
+            const Divider(
+              height: 32,
+            ),
+
+            _item(
+              "Ticket",
+              result!
+                  .ticket.name,
+            ),
+
+            _item(
+              "Event",
+              result!
+                  .event.title,
+            ),
+
+            if (result!
+                    .checkedInBy !=
+                null)
+
+              _item(
+                "Station",
+                result!
+                    .checkedInBy!
+                    .station,
+              ),
+
+            if (result!
+                    .checkedInBy !=
+                null)
+
+              _item(
+                "Checked In At",
+                result!
+                    .checkedInBy!
+                    .checkedInAt,
+              ),
           ],
         ),
-      ],
+      ),
     );
   }
 
-  Widget _errorCard(
-    String message,
-  ) {
-    return Column(
-      mainAxisSize:
-          MainAxisSize.min,
-
-      crossAxisAlignment:
-          CrossAxisAlignment.start,
-
-      children: [
-
-        const Text(
-          "SCAN FAILED",
-          style: TextStyle(
-            fontSize: 22,
-            fontWeight:
-                FontWeight.bold,
-            color: Colors.red,
-          ),
-        ),
-
-        const SizedBox(
-          height: 18,
-        ),
-
-        Text(
-          message,
-          style:
-              const TextStyle(
-            fontSize: 16,
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _statCard(
+  Widget _item(
     String label,
     String value,
   ) {
-    return Container(
+    return Padding(
       padding:
-          const EdgeInsets.symmetric(
-        vertical: 14,
+          const EdgeInsets.only(
+        bottom: 10,
       ),
 
-      decoration: BoxDecoration(
-        color:
-            const Color(
-          0xfff6f6f6,
-        ),
-
-        borderRadius:
-            BorderRadius.circular(
-          12,
-        ),
-      ),
-
-      child: Column(
+      child: Row(
         children: [
 
-          Text(
-            value,
-            style:
-                const TextStyle(
-              fontSize: 28,
-              fontWeight:
-                  FontWeight.bold,
+          SizedBox(
+            width: 100,
+            child: Text(
+              label,
+              style:
+                  const TextStyle(
+                color: Colors.grey,
+              ),
             ),
           ),
 
-          const SizedBox(
-            height: 6,
-          ),
-
-          Text(
-            label,
-            style:
-                const TextStyle(
-              color:
-                  Colors.black54,
+          Expanded(
+            child: Text(
+              value,
+              style:
+                  const TextStyle(
+                fontWeight:
+                    FontWeight.w600,
+              ),
             ),
           ),
         ],
