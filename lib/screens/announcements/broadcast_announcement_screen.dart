@@ -15,11 +15,9 @@ class BroadcastAnnouncementScreen extends StatefulWidget {
 
 class _BroadcastAnnouncementScreenState
     extends State<BroadcastAnnouncementScreen> {
-  final title =
-      TextEditingController();
+  final title = TextEditingController();
 
-  final message =
-      TextEditingController();
+  final message = TextEditingController();
 
   String type = "INFO";
 
@@ -32,16 +30,13 @@ class _BroadcastAnnouncementScreenState
   @override
   void dispose() {
     title.dispose();
-
     message.dispose();
 
     super.dispose();
   }
 
   @override
-  Widget build(
-    BuildContext context,
-  ) {
+  Widget build(BuildContext context) {
     final provider =
         context.read<AnnouncementProvider>();
 
@@ -52,12 +47,10 @@ class _BroadcastAnnouncementScreenState
         ),
       ),
       body: ListView(
-        padding:
-            const EdgeInsets.all(
+        padding: const EdgeInsets.all(
           20,
         ),
         children: [
-
           /*
           |--------------------------------------------------------------------------
           | Title
@@ -101,51 +94,53 @@ class _BroadcastAnnouncementScreenState
           |--------------------------------------------------------------------------
           */
 
-          DropdownButtonFormField<String>(
-            value: type,
+          InputDecorator(
             decoration:
                 const InputDecoration(
               labelText: "Type",
             ),
-            items: const [
+            child:
+                DropdownButtonHideUnderline(
+              child: DropdownButton<String>(
+                value: type,
+                isExpanded: true,
+                items: const [
+                  DropdownMenuItem<String>(
+                    value: "INFO",
+                    child: Text(
+                      "Info",
+                    ),
+                  ),
+                  DropdownMenuItem<String>(
+                    value: "SUCCESS",
+                    child: Text(
+                      "Success",
+                    ),
+                  ),
+                  DropdownMenuItem<String>(
+                    value: "WARNING",
+                    child: Text(
+                      "Warning",
+                    ),
+                  ),
+                  DropdownMenuItem<String>(
+                    value: "EMERGENCY",
+                    child: Text(
+                      "Emergency",
+                    ),
+                  ),
+                ],
+                onChanged: (value) {
+                  if (value == null) {
+                    return;
+                  }
 
-              DropdownMenuItem(
-                value: "INFO",
-                child: Text(
-                  "Info",
-                ),
+                  setState(() {
+                    type = value;
+                  });
+                },
               ),
-
-              DropdownMenuItem(
-                value: "SUCCESS",
-                child: Text(
-                  "Success",
-                ),
-              ),
-
-              DropdownMenuItem(
-                value: "WARNING",
-                child: Text(
-                  "Warning",
-                ),
-              ),
-
-              DropdownMenuItem(
-                value: "EMERGENCY",
-                child: Text(
-                  "Emergency",
-                ),
-              ),
-            ],
-            onChanged: (value) {
-              if (value == null) {
-                return;
-              }
-
-              setState(() {
-                type = value;
-              });
-            },
+            ),
           ),
 
           const SizedBox(
@@ -158,51 +153,53 @@ class _BroadcastAnnouncementScreenState
           |--------------------------------------------------------------------------
           */
 
-          DropdownButtonFormField<String>(
-            value: priority,
+          InputDecorator(
             decoration:
                 const InputDecoration(
               labelText: "Priority",
             ),
-            items: const [
+            child:
+                DropdownButtonHideUnderline(
+              child: DropdownButton<String>(
+                value: priority,
+                isExpanded: true,
+                items: const [
+                  DropdownMenuItem<String>(
+                    value: "LOW",
+                    child: Text(
+                      "Low",
+                    ),
+                  ),
+                  DropdownMenuItem<String>(
+                    value: "NORMAL",
+                    child: Text(
+                      "Normal",
+                    ),
+                  ),
+                  DropdownMenuItem<String>(
+                    value: "HIGH",
+                    child: Text(
+                      "High",
+                    ),
+                  ),
+                  DropdownMenuItem<String>(
+                    value: "CRITICAL",
+                    child: Text(
+                      "Critical",
+                    ),
+                  ),
+                ],
+                onChanged: (value) {
+                  if (value == null) {
+                    return;
+                  }
 
-              DropdownMenuItem(
-                value: "LOW",
-                child: Text(
-                  "Low",
-                ),
+                  setState(() {
+                    priority = value;
+                  });
+                },
               ),
-
-              DropdownMenuItem(
-                value: "NORMAL",
-                child: Text(
-                  "Normal",
-                ),
-              ),
-
-              DropdownMenuItem(
-                value: "HIGH",
-                child: Text(
-                  "High",
-                ),
-              ),
-
-              DropdownMenuItem(
-                value: "CRITICAL",
-                child: Text(
-                  "Critical",
-                ),
-              ),
-            ],
-            onChanged: (value) {
-              if (value == null) {
-                return;
-              }
-
-              setState(() {
-                priority = value;
-              });
-            },
+            ),
           ),
 
           const SizedBox(
@@ -215,51 +212,53 @@ class _BroadcastAnnouncementScreenState
           |--------------------------------------------------------------------------
           */
 
-          DropdownButtonFormField<String>(
-            value: audience,
+          InputDecorator(
             decoration:
                 const InputDecoration(
               labelText: "Audience",
             ),
-            items: const [
+            child:
+                DropdownButtonHideUnderline(
+              child: DropdownButton<String>(
+                value: audience,
+                isExpanded: true,
+                items: const [
+                  DropdownMenuItem<String>(
+                    value: "ALL",
+                    child: Text(
+                      "Everyone",
+                    ),
+                  ),
+                  DropdownMenuItem<String>(
+                    value: "ATTENDEES",
+                    child: Text(
+                      "Attendees",
+                    ),
+                  ),
+                  DropdownMenuItem<String>(
+                    value: "STAFF",
+                    child: Text(
+                      "Staff",
+                    ),
+                  ),
+                  DropdownMenuItem<String>(
+                    value: "ORGANIZERS",
+                    child: Text(
+                      "Organizers",
+                    ),
+                  ),
+                ],
+                onChanged: (value) {
+                  if (value == null) {
+                    return;
+                  }
 
-              DropdownMenuItem(
-                value: "ALL",
-                child: Text(
-                  "Everyone",
-                ),
+                  setState(() {
+                    audience = value;
+                  });
+                },
               ),
-
-              DropdownMenuItem(
-                value: "ATTENDEES",
-                child: Text(
-                  "Attendees",
-                ),
-              ),
-
-              DropdownMenuItem(
-                value: "STAFF",
-                child: Text(
-                  "Staff",
-                ),
-              ),
-
-              DropdownMenuItem(
-                value: "ORGANIZERS",
-                child: Text(
-                  "Organizers",
-                ),
-              ),
-            ],
-            onChanged: (value) {
-              if (value == null) {
-                return;
-              }
-
-              setState(() {
-                audience = value;
-              });
-            },
+            ),
           ),
 
           const SizedBox(
@@ -297,9 +296,7 @@ class _BroadcastAnnouncementScreenState
           FilledButton(
             onPressed: () async {
               final navigator =
-                  Navigator.of(
-                context,
-              );
+                  Navigator.of(context);
 
               await provider.create(
                 title:
@@ -307,12 +304,9 @@ class _BroadcastAnnouncementScreenState
                 message:
                     message.text.trim(),
                 type: type,
-                priority:
-                    priority,
-                audience:
-                    audience,
-                isPinned:
-                    pinned,
+                priority: priority,
+                audience: audience,
+                isPinned: pinned,
               );
 
               if (!mounted) {
