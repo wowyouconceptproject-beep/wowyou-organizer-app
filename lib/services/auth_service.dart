@@ -1,97 +1,243 @@
 import "dart:convert";
 
+import "package:flutter/foundation.dart";
 import "package:http/http.dart" as http;
-import "package:shared_preferences/shared_preferences.dart";
 
 import "../config/api.dart";
 import "../models/login_response.dart";
+import "../utils/storage.dart";
 
 class AuthService {
+  /*
+  |--------------------------------------------------------------------------
+  | Organizer Operations Login
+  |--------------------------------------------------------------------------
+  */
+
   Future<LoginResponse> login(
     String accessCode,
   ) async {
-    final response = await http.post(
-      Uri.parse(
-  "${ApiConfig.baseUrl}/operations/access",
-),
+    /*
+    |--------------------------------------------------------------------------
+    | Normalize Access Code
+    |--------------------------------------------------------------------------
+    |
+    | Prevent accidental spaces from the input field from causing an exact
+    | database lookup failure.
+    |
+    */
+
+    final normalizedAccessCode =
+        accessCode.trim();
+
+    if (normalizedAccessCode.isEmpty) {
+      throw Exception(
+        "Access code is required.",
+      );
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Debug
+    |--------------------------------------------------------------------------
+    */
+
+    debugPrint(
+      "OPERATIONS ACCESS CODE SENT: "
+      "[$normalizedAccessCode]",
+    );
+
+    final url =
+        "${ApiConfig.baseUrl}/operations/access";
+
+    debugPrint(
+      "OPERATIONS LOGIN URL: $url",
+    );
+
+    /*
+    |--------------------------------------------------------------------------
+    | Request
+    |--------------------------------------------------------------------------
+    */
+
+    final response =
+        await http.post(
+      Uri.parse(url),
       headers: {
-        "Content-Type": "application/json",
+        "Content-Type":
+            "application/json",
+        "Accept":
+            "application/json",
       },
       body: jsonEncode({
-       "accessCode": accessCode,
-       "deviceId": "flutter-device",
-       "deviceName": "WowYou Operations",
-       "platform": "flutter",
-       "appVersion": "1.0.0",
+        "accessCode":
+            normalizedAccessCode,
+        "deviceId":
+            "flutter-device",
+        "deviceName":
+            "WowYou Operations",
+        "platform":
+            "flutter",
+        "appVersion":
+            "1.0.0",
       }),
     );
 
-    final body = jsonDecode(response.body);
+    /*
+    |--------------------------------------------------------------------------
+    | Debug Response
+    |--------------------------------------------------------------------------
+    */
+
+    debugPrint(
+      "OPERATIONS LOGIN STATUS: "
+      "${response.statusCode}",
+    );
+
+    debugPrint(
+      "OPERATIONS LOGIN RESPONSE: "
+      "${response.body}",
+    );
+
+    /*
+    |--------------------------------------------------------------------------
+    | Empty Response
+    |--------------------------------------------------------------------------
+    */
+
+    if (response.body.isEmpty) {
+      throw Exception(
+        "Empty server response.",
+      );
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Parse Response
+    |--------------------------------------------------------------------------
+    */
+
+    dynamic decoded;
+
+    try {
+      decoded =
+          jsonDecode(
+        response.body,
+      );
+    } catch (_) {
+      throw Exception(
+        "Invalid server response.",
+      );
+    }
+
+    if (decoded
+        is! Map<String, dynamic>) {
+      throw Exception(
+        "Invalid server response.",
+      );
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | HTTP Error
+    |--------------------------------------------------------------------------
+    */
 
     if (response.statusCode < 200 ||
         response.statusCode >= 300) {
       throw Exception(
-        body["message"] ??
+        decoded["message"]
+                ?.toString() ??
             "Login failed.",
       );
     }
 
+    /*
+    |--------------------------------------------------------------------------
+    | API Error
+    |--------------------------------------------------------------------------
+    */
+
+    if (decoded["success"] !=
+        true) {
+      throw Exception(
+        decoded["message"]
+                ?.toString() ??
+            "Login failed.",
+      );
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Parse Login
+    |--------------------------------------------------------------------------
+    */
+
     final login =
         LoginResponse.fromJson(
-      body,
+      decoded,
     );
 
-    final prefs =
-        await SharedPreferences
-            .getInstance();
+    /*
+    |--------------------------------------------------------------------------
+    | Validate JWT
+    |--------------------------------------------------------------------------
+    */
 
-    await prefs.setString(
-      "token",
+    if (login.token.isEmpty) {
+      throw Exception(
+        "Authentication token was not returned.",
+      );
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Store Operations JWT
+    |--------------------------------------------------------------------------
+    */
+
+    await Storage.saveToken(
       login.token,
     );
 
-    await prefs.setString(
-      "staff",
-      jsonEncode(
-        body["staff"],
-      ),
-    );
-
-    await prefs.setString(
-      "event",
-      jsonEncode(
-        body["event"],
-      ),
+    debugPrint(
+      "OPERATIONS LOGIN SUCCESS",
     );
 
     return login;
   }
 
-  Future<void> logout() async {
-    final prefs =
-        await SharedPreferences
-            .getInstance();
+  /*
+  |--------------------------------------------------------------------------
+  | Logout
+  |--------------------------------------------------------------------------
+  */
 
-    await prefs.clear();
+  Future<void> logout() async {
+    await Storage.clear();
   }
+
+  /*
+  |--------------------------------------------------------------------------
+  | Authentication State
+  |--------------------------------------------------------------------------
+  */
 
   Future<bool> isLoggedIn() async {
-    final prefs =
-        await SharedPreferences
-            .getInstance();
+    final token =
+        await Storage.getToken();
 
-    return prefs.containsKey(
-      "token",
-    );
+    return token != null &&
+        token.isNotEmpty;
   }
 
-  Future<String?> token() async {
-    final prefs =
-        await SharedPreferences
-            .getInstance();
+  /*
+  |--------------------------------------------------------------------------
+  | Current Token
+  |--------------------------------------------------------------------------
+  */
 
-    return prefs.getString(
-      "token",
-    );
+  Future<String?> token() async {
+    return Storage.getToken();
   }
 }

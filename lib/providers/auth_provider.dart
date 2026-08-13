@@ -12,7 +12,8 @@ import "../utils/storage.dart";
 
 import "realtime_provider.dart";
 
-class AuthProvider extends ChangeNotifier {
+class AuthProvider
+    extends ChangeNotifier {
   final AuthService _service =
       AuthService();
 
@@ -34,6 +35,10 @@ class AuthProvider extends ChangeNotifier {
     String accessCode,
     RealtimeProvider realtime,
   ) async {
+    if (loading) {
+      return;
+    }
+
     loading = true;
 
     notifyListeners();
@@ -44,36 +49,37 @@ class AuthProvider extends ChangeNotifier {
         accessCode,
       );
 
-      token = result.token;
-
-      staff = result.staff;
-
-      event = result.event;
-
       /*
-      |--------------------------------------------------------------------------
-      | Persist JWT Securely
-      |--------------------------------------------------------------------------
+      |----------------------------------------------------------------------
+      | Authentication
+      |----------------------------------------------------------------------
       */
 
-      if (token != null) {
-        await Storage.saveToken(
-          token!,
-        );
-      }
+      token =
+          result.token;
+
+      staff =
+          result.staff;
+
+      event =
+          result.event;
 
       /*
-      |--------------------------------------------------------------------------
+      |----------------------------------------------------------------------
       | Persist Session
-      |--------------------------------------------------------------------------
+      |----------------------------------------------------------------------
+      |
+      | AuthService has already stored the JWT in FlutterSecureStorage.
+      | Persist the staff/event information here.
+      |
       */
 
       await _persistSession();
 
       /*
-      |--------------------------------------------------------------------------
+      |----------------------------------------------------------------------
       | Connect Realtime
-      |--------------------------------------------------------------------------
+      |----------------------------------------------------------------------
       */
 
       if (event != null) {
@@ -81,6 +87,18 @@ class AuthProvider extends ChangeNotifier {
           event!.id,
         );
       }
+    } catch (error) {
+      /*
+      |----------------------------------------------------------------------
+      | Login Failure
+      |----------------------------------------------------------------------
+      */
+
+      token = null;
+      staff = null;
+      event = null;
+
+      rethrow;
     } finally {
       loading = false;
 
@@ -102,21 +120,17 @@ class AuthProvider extends ChangeNotifier {
     try {
       await _service.logout();
     } catch (_) {
-      // Ignore API logout failures.
+      /*
+      |----------------------------------------------------------------------
+      | Local logout must still complete even if remote cleanup fails.
+      |----------------------------------------------------------------------
+      */
     }
 
     /*
-    |--------------------------------------------------------------------------
-    | Remove Secure JWT
-    |--------------------------------------------------------------------------
-    */
-
-    await Storage.clear();
-
-    /*
-    |--------------------------------------------------------------------------
-    | Remove Cached Models
-    |--------------------------------------------------------------------------
+    |----------------------------------------------------------------------
+    | Clear Cached Session
+    |----------------------------------------------------------------------
     */
 
     final prefs =
@@ -131,10 +145,16 @@ class AuthProvider extends ChangeNotifier {
       "event",
     );
 
+    /*
+    |----------------------------------------------------------------------
+    | Clear Authentication State
+    |----------------------------------------------------------------------
+    */
+
     clear();
   }
 
-    /*
+  /*
   |--------------------------------------------------------------------------
   | Restore Session
   |--------------------------------------------------------------------------
@@ -143,62 +163,122 @@ class AuthProvider extends ChangeNotifier {
   Future<bool> restoreSession(
     RealtimeProvider realtime,
   ) async {
-    final prefs =
-        await SharedPreferences
-            .getInstance();
+    try {
+      /*
+      |----------------------------------------------------------------------
+      | JWT
+      |----------------------------------------------------------------------
+      */
 
-    /*
-    |--------------------------------------------------------------------------
-    | JWT
-    |--------------------------------------------------------------------------
-    */
+      final savedToken =
+          await Storage.getToken();
 
-    final savedToken =
-        await Storage.getToken();
+      /*
+      |----------------------------------------------------------------------
+      | Cached Models
+      |----------------------------------------------------------------------
+      */
 
-    /*
-    |--------------------------------------------------------------------------
-    | Cached Models
-    |--------------------------------------------------------------------------
-    */
+      final prefs =
+          await SharedPreferences
+              .getInstance();
 
-    final savedStaff =
-        prefs.getString(
-      "staff",
-    );
+      final savedStaff =
+          prefs.getString(
+        "staff",
+      );
 
-    final savedEvent =
-        prefs.getString(
-      "event",
-    );
+      final savedEvent =
+          prefs.getString(
+        "event",
+      );
 
-    if (savedToken == null ||
-        savedStaff == null ||
-        savedEvent == null) {
+      /*
+      |----------------------------------------------------------------------
+      | Validate Session
+      |----------------------------------------------------------------------
+      */
+
+      if (savedToken == null ||
+          savedToken.isEmpty ||
+          savedStaff == null ||
+          savedEvent == null) {
+        return false;
+      }
+
+      /*
+      |----------------------------------------------------------------------
+      | Restore JWT
+      |----------------------------------------------------------------------
+      */
+
+      token =
+          savedToken;
+
+      /*
+      |----------------------------------------------------------------------
+      | Restore Staff
+      |----------------------------------------------------------------------
+      */
+
+      staff =
+          Staff.fromJson(
+        jsonDecode(
+          savedStaff,
+        ),
+      );
+
+      /*
+      |----------------------------------------------------------------------
+      | Restore Event
+      |----------------------------------------------------------------------
+      */
+
+      event =
+          Event.fromJson(
+        jsonDecode(
+          savedEvent,
+        ),
+      );
+
+      /*
+      |----------------------------------------------------------------------
+      | Reconnect Realtime
+      |----------------------------------------------------------------------
+      */
+
+      realtime.connect(
+        event!.id,
+      );
+
+      notifyListeners();
+
+      return true;
+    } catch (error) {
+      /*
+      |----------------------------------------------------------------------
+      | Invalid Cached Session
+      |----------------------------------------------------------------------
+      */
+
+      await Storage.clear();
+
+      final prefs =
+          await SharedPreferences
+              .getInstance();
+
+      await prefs.remove(
+        "staff",
+      );
+
+      await prefs.remove(
+        "event",
+      );
+
+      clear();
+
       return false;
     }
-
-    token = savedToken;
-
-    staff = Staff.fromJson(
-      jsonDecode(
-        savedStaff,
-      ),
-    );
-
-    event = Event.fromJson(
-      jsonDecode(
-        savedEvent,
-      ),
-    );
-
-    realtime.connect(
-      event!.id,
-    );
-
-    notifyListeners();
-
-    return true;
   }
 
   /*
@@ -210,15 +290,19 @@ class AuthProvider extends ChangeNotifier {
   Future<void>
       _persistSession() async {
     if (token == null ||
+        token!.isEmpty ||
         staff == null ||
         event == null) {
       return;
     }
 
     /*
-    |--------------------------------------------------------------------------
-    | Secure JWT
-    |--------------------------------------------------------------------------
+    |----------------------------------------------------------------------
+    | JWT
+    |----------------------------------------------------------------------
+    |
+    | The JWT is stored exclusively in FlutterSecureStorage.
+    |
     */
 
     await Storage.saveToken(
@@ -226,9 +310,9 @@ class AuthProvider extends ChangeNotifier {
     );
 
     /*
-    |--------------------------------------------------------------------------
-    | Cached Models
-    |--------------------------------------------------------------------------
+    |----------------------------------------------------------------------
+    | Staff + Event Cache
+    |----------------------------------------------------------------------
     */
 
     final prefs =
@@ -257,7 +341,8 @@ class AuthProvider extends ChangeNotifier {
   */
 
   bool get isLoggedIn =>
-      token != null;
+      token != null &&
+      token!.isNotEmpty;
 
   /*
   |--------------------------------------------------------------------------
@@ -344,7 +429,7 @@ class AuthProvider extends ChangeNotifier {
 
   /*
   |--------------------------------------------------------------------------
-  | Reset
+  | Clear
   |--------------------------------------------------------------------------
   */
 
