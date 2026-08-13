@@ -1,5 +1,6 @@
 import "package:flutter/material.dart";
 import "package:provider/provider.dart";
+
 import "../../providers/realtime_provider.dart";
 
 import "../../constants/app_spacing.dart";
@@ -24,7 +25,7 @@ class AccessCodeScreen extends StatefulWidget {
 
 class _AccessCodeScreenState
     extends State<AccessCodeScreen> {
-  final controller =
+  final TextEditingController controller =
       TextEditingController();
 
   String? error;
@@ -37,18 +38,37 @@ class _AccessCodeScreenState
     super.dispose();
   }
 
+  /*
+  |--------------------------------------------------------------------------
+  | Login
+  |--------------------------------------------------------------------------
+  */
+
   Future<void> login() async {
     FocusScope.of(context).unfocus();
 
-    final code = controller.text
-        .replaceAll("-", "")
-        .replaceAll(" ", "")
-        .toUpperCase();
+    /*
+    |--------------------------------------------------------------------------
+    | Normalize Access Code
+    |--------------------------------------------------------------------------
+    |
+    | Keep the database format intact.
+    |
+    | Example:
+    |
+    | OPS-LKMQ-AFWZ
+    |
+    | Only remove leading/trailing whitespace and uppercase the value.
+    |
+    */
 
-    if (code.length < 6) {
+    final code =
+        controller.text.trim().toUpperCase();
+
+    if (code.isEmpty) {
       setState(() {
         error =
-            "Please enter a valid access code.";
+            "Please enter your access code.";
       });
 
       return;
@@ -61,15 +81,15 @@ class _AccessCodeScreenState
 
     try {
       final auth =
-    context.read<AuthProvider>();
+          context.read<AuthProvider>();
 
-final realtime =
-    context.read<RealtimeProvider>();
+      final realtime =
+          context.read<RealtimeProvider>();
 
-await auth.login(
-  code,
-  realtime,
-);
+      await auth.login(
+        code,
+        realtime,
+      );
 
       if (!mounted) {
         return;
@@ -80,11 +100,16 @@ await auth.login(
         "/dashboard",
       );
     } catch (e) {
+      if (!mounted) {
+        return;
+      }
+
       setState(() {
-        error = e.toString().replaceFirst(
-              "Exception: ",
-              "",
-            );
+        error =
+            e.toString().replaceFirst(
+                  "Exception: ",
+                  "",
+                );
       });
     } finally {
       if (mounted) {
@@ -95,14 +120,24 @@ await auth.login(
     }
   }
 
+  /*
+  |--------------------------------------------------------------------------
+  | Build
+  |--------------------------------------------------------------------------
+  */
+
   @override
-  Widget build(BuildContext context) {
+  Widget build(
+    BuildContext context,
+  ) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor:
+          Colors.white,
 
       body: SafeArea(
         child: Padding(
-          padding: AppSpacing.page,
+          padding:
+              AppSpacing.page,
 
           child: Center(
             child: ConstrainedBox(
@@ -119,7 +154,6 @@ await auth.login(
                     CrossAxisAlignment.stretch,
 
                 children: [
-
                   const AppLogo(),
 
                   AppSpacing.large,
@@ -141,42 +175,63 @@ await auth.login(
                   AppSpacing.section,
 
                   AppTextField(
-  label: "Access Code",
+                    label:
+                        "Access Code",
 
-  hint: "AB4D82XQ",
+                    hint:
+                        "OPS-LKMQ-AFWZ",
 
-  controller: controller,
+                    controller:
+                        controller,
 
-  autofocus: true,
+                    autofocus:
+                        true,
 
-  keyboardType:
-      TextInputType.visiblePassword,
+                    keyboardType:
+                        TextInputType.visiblePassword,
 
-  textCapitalization:
-      TextCapitalization.characters,
+                    textCapitalization:
+                        TextCapitalization.characters,
 
-  textInputAction:
-      TextInputAction.done,
+                    textInputAction:
+                        TextInputAction.done,
 
-  onSubmitted: login,
+                    onSubmitted:
+                        login,
 
-  onChanged: (value) {
-    controller.value =
-        controller.value.copyWith(
-      text: value.toUpperCase(),
-      selection:
-          TextSelection.collapsed(
-        offset: value.length,
-      ),
-    );
+                    onChanged:
+                        (value) {
+                      /*
+                      |--------------------------------------------------------------------------
+                      | Uppercase Only
+                      |--------------------------------------------------------------------------
+                      |
+                      | DO NOT remove hyphens.
+                      |
+                      */
 
-    if (error != null) {
-      setState(() {
-        error = null;
-      });
-    }
-  },
-),
+                      final upper =
+                          value.toUpperCase();
+
+                      if (upper != value) {
+                        controller.value =
+                            controller.value.copyWith(
+                          text: upper,
+                          selection:
+                              TextSelection.collapsed(
+                            offset:
+                                upper.length,
+                          ),
+                        );
+                      }
+
+                      if (error != null) {
+                        setState(() {
+                          error = null;
+                        });
+                      }
+                    },
+                  ),
 
                   AppSpacing.item,
 
@@ -186,6 +241,7 @@ await auth.login(
                           const EdgeInsets.only(
                         bottom: 16,
                       ),
+
                       child:
                           AppErrorCard(
                         title:
@@ -206,7 +262,9 @@ await auth.login(
                     onPressed:
                         loading
                             ? null
-                            : login,
+                            : () {
+                                login();
+                              },
                   ),
 
                   AppSpacing.large,
@@ -215,8 +273,7 @@ await auth.login(
                     child: Text(
                       "Need help?\nContact your event organizer.",
                       textAlign:
-                          TextAlign
-                              .center,
+                          TextAlign.center,
                       style:
                           AppText.secondary,
                     ),
