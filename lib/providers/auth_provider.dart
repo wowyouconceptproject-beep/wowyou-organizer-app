@@ -12,8 +12,7 @@ import "../utils/storage.dart";
 
 import "realtime_provider.dart";
 
-class AuthProvider
-    extends ChangeNotifier {
+class AuthProvider extends ChangeNotifier {
   final AuthService _service =
       AuthService();
 
@@ -68,10 +67,6 @@ class AuthProvider
       |----------------------------------------------------------------------
       | Persist Session
       |----------------------------------------------------------------------
-      |
-      | AuthService has already stored the JWT in FlutterSecureStorage.
-      | Persist the staff/event information here.
-      |
       */
 
       await _persistSession();
@@ -122,16 +117,10 @@ class AuthProvider
     } catch (_) {
       /*
       |----------------------------------------------------------------------
-      | Local logout must still complete even if remote cleanup fails.
+      | Local logout must still complete.
       |----------------------------------------------------------------------
       */
     }
-
-    /*
-    |----------------------------------------------------------------------
-    | Clear Cached Session
-    |----------------------------------------------------------------------
-    */
 
     final prefs =
         await SharedPreferences
@@ -144,12 +133,6 @@ class AuthProvider
     await prefs.remove(
       "event",
     );
-
-    /*
-    |----------------------------------------------------------------------
-    | Clear Authentication State
-    |----------------------------------------------------------------------
-    */
 
     clear();
   }
@@ -164,20 +147,8 @@ class AuthProvider
     RealtimeProvider realtime,
   ) async {
     try {
-      /*
-      |----------------------------------------------------------------------
-      | JWT
-      |----------------------------------------------------------------------
-      */
-
       final savedToken =
           await Storage.getToken();
-
-      /*
-      |----------------------------------------------------------------------
-      | Cached Models
-      |----------------------------------------------------------------------
-      */
 
       final prefs =
           await SharedPreferences
@@ -193,12 +164,6 @@ class AuthProvider
         "event",
       );
 
-      /*
-      |----------------------------------------------------------------------
-      | Validate Session
-      |----------------------------------------------------------------------
-      */
-
       if (savedToken == null ||
           savedToken.isEmpty ||
           savedStaff == null ||
@@ -206,20 +171,8 @@ class AuthProvider
         return false;
       }
 
-      /*
-      |----------------------------------------------------------------------
-      | Restore JWT
-      |----------------------------------------------------------------------
-      */
-
       token =
           savedToken;
-
-      /*
-      |----------------------------------------------------------------------
-      | Restore Staff
-      |----------------------------------------------------------------------
-      */
 
       staff =
           Staff.fromJson(
@@ -228,12 +181,6 @@ class AuthProvider
         ),
       );
 
-      /*
-      |----------------------------------------------------------------------
-      | Restore Event
-      |----------------------------------------------------------------------
-      */
-
       event =
           Event.fromJson(
         jsonDecode(
@@ -241,26 +188,16 @@ class AuthProvider
         ),
       );
 
-      /*
-      |----------------------------------------------------------------------
-      | Reconnect Realtime
-      |----------------------------------------------------------------------
-      */
-
-      realtime.connect(
-        event!.id,
-      );
+      if (event != null) {
+        realtime.connect(
+          event!.id,
+        );
+      }
 
       notifyListeners();
 
       return true;
     } catch (error) {
-      /*
-      |----------------------------------------------------------------------
-      | Invalid Cached Session
-      |----------------------------------------------------------------------
-      */
-
       await Storage.clear();
 
       final prefs =
@@ -300,9 +237,6 @@ class AuthProvider
     |----------------------------------------------------------------------
     | JWT
     |----------------------------------------------------------------------
-    |
-    | The JWT is stored exclusively in FlutterSecureStorage.
-    |
     */
 
     await Storage.saveToken(
@@ -311,7 +245,7 @@ class AuthProvider
 
     /*
     |----------------------------------------------------------------------
-    | Staff + Event Cache
+    | Staff
     |----------------------------------------------------------------------
     */
 
@@ -325,6 +259,12 @@ class AuthProvider
         staff!.toJson(),
       ),
     );
+
+    /*
+    |----------------------------------------------------------------------
+    | Event
+    |----------------------------------------------------------------------
+    */
 
     await prefs.setString(
       "event",
@@ -346,7 +286,7 @@ class AuthProvider
 
   /*
   |--------------------------------------------------------------------------
-  | Staff
+  | Staff Identity
   |--------------------------------------------------------------------------
   */
 
@@ -381,40 +321,56 @@ class AuthProvider
 
   /*
   |--------------------------------------------------------------------------
-  | Roles
+  | Dashboard
   |--------------------------------------------------------------------------
   */
 
-  bool get isAdmin =>
-      role == "ADMIN";
-
-  bool get isOrganizer =>
-      role == "ORGANIZER";
+  bool get canViewDashboard =>
+      hasPermission(
+        "VIEW_DASHBOARD",
+      );
 
   /*
   |--------------------------------------------------------------------------
-  | Operations Permissions
+  | Check-In / Pass Verification
   |--------------------------------------------------------------------------
   */
 
-  bool get isScanner =>
+  bool get canScanQr =>
       hasPermission(
         "SCAN_QR",
       );
 
-  bool get canManualCheckIn =>
+  bool get canVerifyPass =>
       hasPermission(
-        "MANUAL_CHECK_IN",
+        "VERIFY_PASS",
       );
 
-  bool get canSearch =>
+  bool get canSearchAttendee =>
       hasPermission(
         "SEARCH_ATTENDEE",
       );
 
+  /*
+  |--------------------------------------------------------------------------
+  | Activity
+  |--------------------------------------------------------------------------
+  */
+
   bool get canViewActivity =>
       hasPermission(
         "VIEW_ACTIVITY",
+      );
+
+  /*
+  |--------------------------------------------------------------------------
+  | Communication
+  |--------------------------------------------------------------------------
+  */
+
+  bool get canSendNotification =>
+      hasPermission(
+        "SEND_NOTIFICATION",
       );
 
   bool get canSendAnnouncement =>
@@ -422,10 +378,117 @@ class AuthProvider
         "SEND_ANNOUNCEMENT",
       );
 
+  /*
+  |--------------------------------------------------------------------------
+  | Staff Management
+  |--------------------------------------------------------------------------
+  */
+
+  bool get canManageStaff =>
+      hasPermission(
+        "MANAGE_STAFF",
+      );
+
+  /*
+  |--------------------------------------------------------------------------
+  | Vendor Management
+  |--------------------------------------------------------------------------
+  */
+
+  bool get canManageVendors =>
+      hasPermission(
+        "MANAGE_VENDORS",
+      );
+
+  /*
+  |--------------------------------------------------------------------------
+  | Reports
+  |--------------------------------------------------------------------------
+  */
+
+  bool get canViewReports =>
+      hasPermission(
+        "VIEW_REPORTS",
+      );
+
+  /*
+  |--------------------------------------------------------------------------
+  | Event Management
+  |--------------------------------------------------------------------------
+  */
+
+  bool get canEditEvent =>
+      hasPermission(
+        "EDIT_EVENT",
+      );
+
+  /*
+  |--------------------------------------------------------------------------
+  | Role Helpers
+  |--------------------------------------------------------------------------
+  */
+
+  bool get isOwner =>
+      role == "OWNER";
+
+  bool get isOperations =>
+      role == "OPERATIONS";
+
+  bool get isCheckIn =>
+      role == "CHECK_IN";
+
+  bool get isSecurity =>
+      role == "SECURITY";
+
+  bool get isStageManager =>
+      role == "STAGE_MANAGER";
+
+  bool get isVendorManager =>
+      role == "VENDOR_MANAGER";
+
+  /*
+  |--------------------------------------------------------------------------
+  | Role Groups
+  |--------------------------------------------------------------------------
+  */
+
+  bool get isEventManagement =>
+      isOwner ||
+      canEditEvent;
+
+  bool get isOperationsStaff =>
+      isOwner ||
+      isOperations;
+
+  bool get isCheckInStaff =>
+      isOwner ||
+      isCheckIn;
+
+  bool get isSecurityStaff =>
+      isOwner ||
+      isSecurity;
+
+  /*
+  |--------------------------------------------------------------------------
+  | Legacy Compatibility
+  |--------------------------------------------------------------------------
+  |
+  | Keep these temporarily so existing screens do not break while we migrate
+  | them to the new permission names.
+  |
+  */
+
+  bool get isScanner =>
+      canScanQr;
+
+  bool get canManualCheckIn =>
+      canVerifyPass;
+
+  bool get canSearch =>
+      canSearchAttendee;
+
   bool get canBroadcast =>
-      canSendAnnouncement ||
-      isAdmin ||
-      isOrganizer;
+      canSendAnnouncement;
 
   /*
   |--------------------------------------------------------------------------

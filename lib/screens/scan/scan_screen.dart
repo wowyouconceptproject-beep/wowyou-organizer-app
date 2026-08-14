@@ -76,17 +76,27 @@ class _ScanViewState
     super.dispose();
   }
 
-  @override
-  Widget build(
-    BuildContext context,
-  ) {
-    final auth =
-        context.watch<AuthProvider>();
+@override
+Widget build(BuildContext context) {
+  final auth =
+      context.watch<AuthProvider>();
 
-    final scan =
-        context.watch<ScanProvider>();
+  if (!auth.canScanQr) {
+    return const Scaffold(
+      backgroundColor: Colors.white,
+      body: Center(
+        child: Text(
+          "You do not have permission to scan attendee passes.",
+          textAlign: TextAlign.center,
+        ),
+      ),
+    );
+  }
 
-    return Scaffold(
+  final scan =
+      context.watch<ScanProvider>();
+
+  return Scaffold(
       backgroundColor: Colors.white,
 
       appBar: AppBar(

@@ -2,22 +2,28 @@ import "package:flutter/material.dart";
 import "package:provider/provider.dart";
 
 import "../../providers/announcement_provider.dart";
+import "../../providers/auth_provider.dart";
 
-class BroadcastAnnouncementScreen extends StatefulWidget {
+class BroadcastAnnouncementScreen
+    extends StatefulWidget {
   const BroadcastAnnouncementScreen({
     super.key,
   });
 
   @override
-  State<BroadcastAnnouncementScreen> createState() =>
-      _BroadcastAnnouncementScreenState();
+  State<BroadcastAnnouncementScreen>
+      createState() =>
+          _BroadcastAnnouncementScreenState();
 }
 
 class _BroadcastAnnouncementScreenState
-    extends State<BroadcastAnnouncementScreen> {
-  final title = TextEditingController();
+    extends State<
+        BroadcastAnnouncementScreen> {
+  final title =
+      TextEditingController();
 
-  final message = TextEditingController();
+  final message =
+      TextEditingController();
 
   String type = "INFO";
 
@@ -27,6 +33,8 @@ class _BroadcastAnnouncementScreenState
 
   bool pinned = false;
 
+  bool submitting = false;
+
   @override
   void dispose() {
     title.dispose();
@@ -35,10 +43,166 @@ class _BroadcastAnnouncementScreenState
     super.dispose();
   }
 
+  Future<void> _broadcast() async {
+    final auth =
+        context.read<AuthProvider>();
+
+    /*
+    |--------------------------------------------------------------------------
+    | Permission Guard
+    |--------------------------------------------------------------------------
+    */
+
+    if (!auth.canSendAnnouncement) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(
+        const SnackBar(
+          content: Text(
+            "You do not have permission to send announcements.",
+          ),
+        ),
+      );
+
+      return;
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Validation
+    |--------------------------------------------------------------------------
+    */
+
+    final titleText =
+        title.text.trim();
+
+    final messageText =
+        message.text.trim();
+
+    if (titleText.isEmpty) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(
+        const SnackBar(
+          content: Text(
+            "Please enter an announcement title.",
+          ),
+        ),
+      );
+
+      return;
+    }
+
+    if (messageText.isEmpty) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(
+        const SnackBar(
+          content: Text(
+            "Please enter an announcement message.",
+          ),
+        ),
+      );
+
+      return;
+    }
+
+    if (submitting) {
+      return;
+    }
+
+    setState(() {
+      submitting = true;
+    });
+
+    try {
+      final provider =
+          context.read<
+              AnnouncementProvider>();
+
+      await provider.create(
+  title: titleText,
+  message: messageText,
+  type: type,
+  priority: priority,
+  audience: audience,
+  isPinned: pinned,
+  auth: context.read<AuthProvider>(),
+);
+
+      if (!mounted) {
+        return;
+      }
+
+      Navigator.of(
+        context,
+      ).pop();
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(
+        SnackBar(
+          content: Text(
+            error
+                .toString()
+                .replaceFirst(
+                  "Exception: ",
+                  "",
+                ),
+          ),
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          submitting = false;
+        });
+      }
+    }
+  }
+
   @override
-  Widget build(BuildContext context) {
-    final provider =
-        context.read<AnnouncementProvider>();
+  Widget build(
+    BuildContext context,
+  ) {
+    final auth =
+        context.watch<AuthProvider>();
+
+    /*
+    |--------------------------------------------------------------------------
+    | Permission Guard
+    |--------------------------------------------------------------------------
+    */
+
+    if (!auth.canSendAnnouncement) {
+      return Scaffold(
+        appBar: AppBar(
+          title: const Text(
+            "Broadcast",
+          ),
+        ),
+        body: const Center(
+          child: Padding(
+            padding:
+                EdgeInsets.all(24),
+            child: Text(
+              "You do not have permission to send announcements.",
+              textAlign:
+                  TextAlign.center,
+              style: TextStyle(
+                fontSize: 16,
+                color:
+                    Colors.black54,
+              ),
+            ),
+          ),
+        ),
+      );
+    }
 
     return Scaffold(
       appBar: AppBar(
@@ -46,10 +210,11 @@ class _BroadcastAnnouncementScreenState
           "Broadcast",
         ),
       ),
+
       body: ListView(
-        padding: const EdgeInsets.all(
-          20,
-        ),
+        padding:
+            const EdgeInsets.all(20),
+
         children: [
           /*
           |--------------------------------------------------------------------------
@@ -59,9 +224,14 @@ class _BroadcastAnnouncementScreenState
 
           TextField(
             controller: title,
+
+            enabled:
+                !submitting,
+
             decoration:
                 const InputDecoration(
-              labelText: "Title",
+              labelText:
+                  "Title",
             ),
           ),
 
@@ -77,10 +247,16 @@ class _BroadcastAnnouncementScreenState
 
           TextField(
             controller: message,
+
+            enabled:
+                !submitting,
+
             maxLines: 5,
+
             decoration:
                 const InputDecoration(
-              labelText: "Message",
+              labelText:
+                  "Message",
             ),
           ),
 
@@ -97,48 +273,73 @@ class _BroadcastAnnouncementScreenState
           InputDecorator(
             decoration:
                 const InputDecoration(
-              labelText: "Type",
+              labelText:
+                  "Type",
             ),
+
             child:
                 DropdownButtonHideUnderline(
-              child: DropdownButton<String>(
+              child:
+                  DropdownButton<String>(
                 value: type,
-                isExpanded: true,
-                items: const [
-                  DropdownMenuItem<String>(
-                    value: "INFO",
-                    child: Text(
+
+                isExpanded:
+                    true,
+
+                items:
+                    const [
+                  DropdownMenuItem<
+                      String>(
+                    value:
+                        "INFO",
+                    child:
+                        Text(
                       "Info",
                     ),
                   ),
-                  DropdownMenuItem<String>(
-                    value: "SUCCESS",
-                    child: Text(
+                  DropdownMenuItem<
+                      String>(
+                    value:
+                        "SUCCESS",
+                    child:
+                        Text(
                       "Success",
                     ),
                   ),
-                  DropdownMenuItem<String>(
-                    value: "WARNING",
-                    child: Text(
+                  DropdownMenuItem<
+                      String>(
+                    value:
+                        "WARNING",
+                    child:
+                        Text(
                       "Warning",
                     ),
                   ),
-                  DropdownMenuItem<String>(
-                    value: "EMERGENCY",
-                    child: Text(
+                  DropdownMenuItem<
+                      String>(
+                    value:
+                        "EMERGENCY",
+                    child:
+                        Text(
                       "Emergency",
                     ),
                   ),
                 ],
-                onChanged: (value) {
-                  if (value == null) {
-                    return;
-                  }
 
-                  setState(() {
-                    type = value;
-                  });
-                },
+                onChanged:
+                    submitting
+                        ? null
+                        : (value) {
+                            if (value ==
+                                null) {
+                              return;
+                            }
+
+                            setState(() {
+                              type =
+                                  value;
+                            });
+                          },
               ),
             ),
           ),
@@ -156,48 +357,74 @@ class _BroadcastAnnouncementScreenState
           InputDecorator(
             decoration:
                 const InputDecoration(
-              labelText: "Priority",
+              labelText:
+                  "Priority",
             ),
+
             child:
                 DropdownButtonHideUnderline(
-              child: DropdownButton<String>(
-                value: priority,
-                isExpanded: true,
-                items: const [
-                  DropdownMenuItem<String>(
-                    value: "LOW",
-                    child: Text(
+              child:
+                  DropdownButton<String>(
+                value:
+                    priority,
+
+                isExpanded:
+                    true,
+
+                items:
+                    const [
+                  DropdownMenuItem<
+                      String>(
+                    value:
+                        "LOW",
+                    child:
+                        Text(
                       "Low",
                     ),
                   ),
-                  DropdownMenuItem<String>(
-                    value: "NORMAL",
-                    child: Text(
+                  DropdownMenuItem<
+                      String>(
+                    value:
+                        "NORMAL",
+                    child:
+                        Text(
                       "Normal",
                     ),
                   ),
-                  DropdownMenuItem<String>(
-                    value: "HIGH",
-                    child: Text(
+                  DropdownMenuItem<
+                      String>(
+                    value:
+                        "HIGH",
+                    child:
+                        Text(
                       "High",
                     ),
                   ),
-                  DropdownMenuItem<String>(
-                    value: "CRITICAL",
-                    child: Text(
+                  DropdownMenuItem<
+                      String>(
+                    value:
+                        "CRITICAL",
+                    child:
+                        Text(
                       "Critical",
                     ),
                   ),
                 ],
-                onChanged: (value) {
-                  if (value == null) {
-                    return;
-                  }
 
-                  setState(() {
-                    priority = value;
-                  });
-                },
+                onChanged:
+                    submitting
+                        ? null
+                        : (value) {
+                            if (value ==
+                                null) {
+                              return;
+                            }
+
+                            setState(() {
+                              priority =
+                                  value;
+                            });
+                          },
               ),
             ),
           ),
@@ -215,48 +442,74 @@ class _BroadcastAnnouncementScreenState
           InputDecorator(
             decoration:
                 const InputDecoration(
-              labelText: "Audience",
+              labelText:
+                  "Audience",
             ),
+
             child:
                 DropdownButtonHideUnderline(
-              child: DropdownButton<String>(
-                value: audience,
-                isExpanded: true,
-                items: const [
-                  DropdownMenuItem<String>(
-                    value: "ALL",
-                    child: Text(
+              child:
+                  DropdownButton<String>(
+                value:
+                    audience,
+
+                isExpanded:
+                    true,
+
+                items:
+                    const [
+                  DropdownMenuItem<
+                      String>(
+                    value:
+                        "ALL",
+                    child:
+                        Text(
                       "Everyone",
                     ),
                   ),
-                  DropdownMenuItem<String>(
-                    value: "ATTENDEES",
-                    child: Text(
+                  DropdownMenuItem<
+                      String>(
+                    value:
+                        "ATTENDEES",
+                    child:
+                        Text(
                       "Attendees",
                     ),
                   ),
-                  DropdownMenuItem<String>(
-                    value: "STAFF",
-                    child: Text(
+                  DropdownMenuItem<
+                      String>(
+                    value:
+                        "STAFF",
+                    child:
+                        Text(
                       "Staff",
                     ),
                   ),
-                  DropdownMenuItem<String>(
-                    value: "ORGANIZERS",
-                    child: Text(
+                  DropdownMenuItem<
+                      String>(
+                    value:
+                        "ORGANIZERS",
+                    child:
+                        Text(
                       "Organizers",
                     ),
                   ),
                 ],
-                onChanged: (value) {
-                  if (value == null) {
-                    return;
-                  }
 
-                  setState(() {
-                    audience = value;
-                  });
-                },
+                onChanged:
+                    submitting
+                        ? null
+                        : (value) {
+                            if (value ==
+                                null) {
+                              return;
+                            }
+
+                            setState(() {
+                              audience =
+                                  value;
+                            });
+                          },
               ),
             ),
           ),
@@ -272,15 +525,23 @@ class _BroadcastAnnouncementScreenState
           */
 
           SwitchListTile(
-            title: const Text(
+            title:
+                const Text(
               "Pin Announcement",
             ),
-            value: pinned,
-            onChanged: (value) {
-              setState(() {
-                pinned = value;
-              });
-            },
+
+            value:
+                pinned,
+
+            onChanged:
+                submitting
+                    ? null
+                    : (value) {
+                        setState(() {
+                          pinned =
+                              value;
+                        });
+                      },
           ),
 
           const SizedBox(
@@ -293,30 +554,30 @@ class _BroadcastAnnouncementScreenState
           |--------------------------------------------------------------------------
           */
 
-          FilledButton(
-            onPressed: () async {
-              final navigator =
-                  Navigator.of(context);
+          SizedBox(
+            height: 52,
 
-              await provider.create(
-                title:
-                    title.text.trim(),
-                message:
-                    message.text.trim(),
-                type: type,
-                priority: priority,
-                audience: audience,
-                isPinned: pinned,
-              );
+            child:
+                FilledButton(
+              onPressed:
+                  submitting
+                      ? null
+                      : _broadcast,
 
-              if (!mounted) {
-                return;
-              }
-
-              navigator.pop();
-            },
-            child: const Text(
-              "Broadcast",
+              child:
+                  submitting
+                      ? const SizedBox(
+                          width: 22,
+                          height: 22,
+                          child:
+                              CircularProgressIndicator(
+                            strokeWidth:
+                                2,
+                          ),
+                        )
+                      : const Text(
+                          "Broadcast",
+                        ),
             ),
           ),
         ],

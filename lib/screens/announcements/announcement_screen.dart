@@ -15,14 +15,12 @@ class AnnouncementScreen
   });
 
   @override
-  State<AnnouncementScreen>
-      createState() =>
-          _AnnouncementScreenState();
+  State<AnnouncementScreen> createState() =>
+      _AnnouncementScreenState();
 }
 
 class _AnnouncementScreenState
-    extends State<
-        AnnouncementScreen> {
+    extends State<AnnouncementScreen> {
   @override
   void initState() {
     super.initState();
@@ -32,9 +30,21 @@ class _AnnouncementScreenState
         return;
       }
 
+      final auth =
+          context.read<AuthProvider>();
+
+      /*
+      |--------------------------------------------------------------------------
+      | Permission Guard
+      |--------------------------------------------------------------------------
+      */
+
+      if (!auth.canSendAnnouncement) {
+        return;
+      }
+
       context
-          .read<
-              AnnouncementProvider>()
+          .read<AnnouncementProvider>()
           .load();
     });
   }
@@ -46,9 +56,37 @@ class _AnnouncementScreenState
     final auth =
         context.watch<AuthProvider>();
 
+    /*
+    |--------------------------------------------------------------------------
+    | Permission Guard
+    |--------------------------------------------------------------------------
+    */
+
+    if (!auth.canSendAnnouncement) {
+      return Scaffold(
+        appBar: AppBar(
+          title: const Text(
+            "Announcements",
+          ),
+        ),
+        body: const Center(
+          child: Padding(
+            padding: EdgeInsets.all(24),
+            child: Text(
+              "You do not have permission to view announcements.",
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 16,
+                color: Colors.black54,
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
     final provider =
-        context.watch<
-            AnnouncementProvider>();
+        context.watch<AnnouncementProvider>();
 
     return Scaffold(
       appBar: AppBar(
@@ -56,8 +94,15 @@ class _AnnouncementScreenState
           "Announcements",
         ),
       ),
+
+      /*
+      |--------------------------------------------------------------------------
+      | Broadcast
+      |--------------------------------------------------------------------------
+      */
+
       floatingActionButton:
-          auth.canBroadcast
+          auth.canSendAnnouncement
               ? FloatingActionButton.extended(
                   onPressed: () {
                     Navigator.push(
@@ -76,47 +121,52 @@ class _AnnouncementScreenState
                   ),
                 )
               : null,
+
+      /*
+      |--------------------------------------------------------------------------
+      | Announcements
+      |--------------------------------------------------------------------------
+      */
+
       body: RefreshIndicator(
         onRefresh:
             provider.refresh,
+
         child: Builder(
           builder: (_) {
             if (provider.loading &&
-                provider
-                    .announcements
-                    .isEmpty) {
+                provider.announcements.isEmpty) {
               return const Center(
                 child:
                     CircularProgressIndicator(),
               );
             }
 
-            if (provider
-                .announcements
-                .isEmpty) {
+            if (provider.announcements.isEmpty) {
               return ListView(
                 physics:
                     const AlwaysScrollableScrollPhysics(),
+
                 children: const [
                   SizedBox(
                     height: 180,
                   ),
+
                   Icon(
                     Icons.campaign_outlined,
                     size: 64,
-                    color:
-                        Colors.grey,
+                    color: Colors.grey,
                   ),
+
                   SizedBox(
                     height: 16,
                   ),
+
                   Center(
                     child: Text(
                       "No announcements yet.",
-                      style:
-                          TextStyle(
-                        color:
-                            Colors.grey,
+                      style: TextStyle(
+                        color: Colors.grey,
                         fontSize: 16,
                       ),
                     ),
@@ -127,23 +177,22 @@ class _AnnouncementScreenState
 
             return ListView.separated(
               padding:
-                  const EdgeInsets.all(
-                16,
-              ),
-              itemCount: provider
-                  .announcements
-                  .length,
+                  const EdgeInsets.all(16),
+
+              itemCount:
+                  provider.announcements.length,
+
               separatorBuilder:
                   (_, __) =>
                       const SizedBox(
                 height: 12,
               ),
+
               itemBuilder:
                   (_, index) {
                 return AnnouncementCard(
                   announcement:
-                      provider
-                              .announcements[
+                      provider.announcements[
                           index],
                 );
               },

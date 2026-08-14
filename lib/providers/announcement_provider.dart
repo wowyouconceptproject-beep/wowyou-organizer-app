@@ -1,8 +1,9 @@
 import "package:flutter/foundation.dart";
 
 import "../models/announcement.dart";
-
 import "../services/announcement_service.dart";
+
+import "auth_provider.dart";
 
 class AnnouncementProvider
     extends ChangeNotifier {
@@ -29,7 +30,15 @@ class AnnouncementProvider
 
   Future<void> load({
     int limit = 50,
+    bool requirePermission = true,
+    AuthProvider? auth,
   }) async {
+    if (requirePermission &&
+        auth != null &&
+        !auth.canSendAnnouncement) {
+      return;
+    }
+
     loading = true;
 
     notifyListeners();
@@ -63,7 +72,26 @@ class AnnouncementProvider
     required String priority,
     required String audience,
     bool isPinned = false,
+    required AuthProvider auth,
   }) async {
+    /*
+    |--------------------------------------------------------------------------
+    | Permission
+    |--------------------------------------------------------------------------
+    */
+
+    if (!auth.canSendAnnouncement) {
+      throw Exception(
+        "You do not have permission to send announcements.",
+      );
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Create
+    |--------------------------------------------------------------------------
+    */
+
     final announcement =
         await _service.create(
       title: title,
@@ -89,8 +117,15 @@ class AnnouncementProvider
 
   Future<void> pin(
     String id,
-    bool pinned,
-  ) async {
+    bool pinned, {
+    required AuthProvider auth,
+  }) async {
+    if (!auth.canSendAnnouncement) {
+      throw Exception(
+        "You do not have permission to modify announcements.",
+      );
+    }
+
     final updated =
         await _service.pin(
       id,
@@ -109,8 +144,15 @@ class AnnouncementProvider
   */
 
   Future<void> delete(
-    String id,
-  ) async {
+    String id, {
+    required AuthProvider auth,
+  }) async {
+    if (!auth.canSendAnnouncement) {
+      throw Exception(
+        "You do not have permission to delete announcements.",
+      );
+    }
+
     await _service.delete(
       id,
     );
@@ -127,8 +169,7 @@ class AnnouncementProvider
   */
 
   void addRealtime(
-    Announcement
-        announcement,
+    Announcement announcement,
   ) {
     final exists =
         _announcements.any(
@@ -156,8 +197,7 @@ class AnnouncementProvider
   */
 
   void updateRealtime(
-    Announcement
-        announcement,
+    Announcement announcement,
   ) {
     final index =
         _announcements.indexWhere(
@@ -202,8 +242,12 @@ class AnnouncementProvider
   |--------------------------------------------------------------------------
   */
 
-  Future<void> refresh() async {
-    await load();
+  Future<void> refresh({
+    AuthProvider? auth,
+  }) async {
+    await load(
+      auth: auth,
+    );
   }
 
   /*
@@ -213,8 +257,7 @@ class AnnouncementProvider
   */
 
   bool get hasAnnouncements =>
-      _announcements
-          .isNotEmpty;
+      _announcements.isNotEmpty;
 
   Announcement?
       get pinnedAnnouncement {

@@ -12,6 +12,7 @@ import "../../widgets/common/app_button.dart";
 import "../../widgets/common/app_error_card.dart";
 import "../../widgets/common/app_logo.dart";
 import "../../widgets/common/app_text_field.dart";
+import "../home/operations_home_screen.dart";
 
 class AccessCodeScreen extends StatefulWidget {
   const AccessCodeScreen({
@@ -95,10 +96,13 @@ class _AccessCodeScreenState
         return;
       }
 
-      Navigator.pushReplacementNamed(
-        context,
-        "/dashboard",
-      );
+      Navigator.pushReplacement(
+  context,
+  MaterialPageRoute(
+    builder: (_) =>
+        const OperationsHomeScreen(),
+  ),
+);
     } catch (e) {
       if (!mounted) {
         return;

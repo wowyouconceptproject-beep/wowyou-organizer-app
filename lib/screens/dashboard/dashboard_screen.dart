@@ -18,26 +18,39 @@ class DashboardScreen extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(
+    BuildContext context,
+  ) {
     final auth =
         context.watch<AuthProvider>();
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor:
+          Colors.white,
 
       appBar: AppBar(
         title: const Text(
           "WOWYOU Operations",
         ),
-        actions: [
 
+        actions: [
           IconButton(
-            onPressed: () {},
+            onPressed: () {
+              /*
+              |--------------------------------------------------------------------------
+              | Logout
+              |--------------------------------------------------------------------------
+              |
+              | Logout handling should eventually be connected to the auth
+              | provider and realtime provider.
+              |
+              */
+            },
+
             icon: const Icon(
               Icons.logout,
             ),
           ),
-
         ],
       ),
 
@@ -51,6 +64,11 @@ class DashboardScreen extends StatelessWidget {
                 CrossAxisAlignment.start,
 
             children: [
+              /*
+              |--------------------------------------------------------------------------
+              | Event Header
+              |--------------------------------------------------------------------------
+              */
 
               PageHeader(
                 title:
@@ -64,28 +82,202 @@ class DashboardScreen extends StatelessWidget {
 
               AppSpacing.section,
 
+              /*
+              |--------------------------------------------------------------------------
+              | Staff Header
+              |--------------------------------------------------------------------------
+              */
+
               DashboardHeader(
                 staff:
                     auth.staff,
+
                 event:
                     auth.event,
               ),
 
-              AppSpacing.section,
+              /*
+              |--------------------------------------------------------------------------
+              | Dashboard
+              |--------------------------------------------------------------------------
+              |
+              | Only staff with VIEW_DASHBOARD should see dashboard-specific
+              | information.
+              |
+              */
 
-              const QuickActions(),
+              if (auth.canViewDashboard) ...[
+                AppSpacing.section,
 
-              AppSpacing.section,
+                const QuickActions(),
 
-              const LiveStatusCard(),
+                AppSpacing.section,
 
-              AppSpacing.section,
+                const LiveStatusCard(),
 
-              const RecentActivityCard(),
+                AppSpacing.section,
+
+                const RecentActivityCard(),
+              ],
+
+              /*
+              |--------------------------------------------------------------------------
+              | Activity-only Staff
+              |--------------------------------------------------------------------------
+              */
+
+              if (!auth.canViewDashboard &&
+                  auth.canViewActivity) ...[
+                AppSpacing.section,
+
+                const RecentActivityCard(),
+              ],
+
+              /*
+              |--------------------------------------------------------------------------
+              | No Dashboard Permission
+              |--------------------------------------------------------------------------
+              |
+              | Some roles, such as SECURITY and CHECK_IN, do not have
+              | VIEW_DASHBOARD. They should not be shown an empty dashboard.
+              |
+              */
+
+              if (!auth.canViewDashboard &&
+                  !auth.canViewActivity)
+                ...[
+                  AppSpacing.section,
+
+                  _AccessSummary(
+                    auth: auth,
+                  ),
+                ],
             ],
           ),
         ),
       ),
     );
+  }
+}
+
+/*
+|--------------------------------------------------------------------------
+| Access Summary
+|--------------------------------------------------------------------------
+*/
+
+class _AccessSummary
+    extends StatelessWidget {
+  final AuthProvider auth;
+
+  const _AccessSummary({
+    required this.auth,
+  });
+
+  @override
+  Widget build(
+    BuildContext context,
+  ) {
+    final permissions =
+        auth.permissions;
+
+    return Container(
+      width:
+          double.infinity,
+
+      padding:
+          const EdgeInsets.all(20),
+
+      decoration:
+          BoxDecoration(
+        color:
+            Colors.grey.shade100,
+
+        borderRadius:
+            BorderRadius.circular(
+          16,
+        ),
+      ),
+
+      child: Column(
+        crossAxisAlignment:
+            CrossAxisAlignment.start,
+
+        children: [
+          Text(
+            auth.role.isEmpty
+                ? "Staff Access"
+                : auth.role,
+
+            style:
+                const TextStyle(
+              fontSize: 18,
+              fontWeight:
+                  FontWeight.w700,
+            ),
+          ),
+
+          const SizedBox(
+            height: 8,
+          ),
+
+          const Text(
+            "You are signed in successfully. Your account is limited to the permissions assigned to your role.",
+
+            style:
+                TextStyle(
+              color:
+                  Colors.black54,
+
+              height:
+                  1.5,
+            ),
+          ),
+
+          if (permissions.isNotEmpty) ...[
+            const SizedBox(
+              height: 16,
+            ),
+
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+
+              children:
+                  permissions
+                      .map(
+                        (
+                          permission,
+                        ) =>
+                            Chip(
+                          label:
+                              Text(
+                            _formatPermission(
+                              permission,
+                            ),
+                          ),
+                        ),
+                      )
+                      .toList(),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  String _formatPermission(
+    String permission,
+  ) {
+    return permission
+        .toLowerCase()
+        .split("_")
+        .map(
+          (word) =>
+              word.isEmpty
+                  ? ""
+                  : "${word[0].toUpperCase()}${word.substring(1)}",
+        )
+        .join(" ");
   }
 }
