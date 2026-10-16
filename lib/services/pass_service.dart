@@ -1,7 +1,6 @@
 import "dart:convert";
 
-import "package:http/http.dart"
-    as http;
+import "package:http/http.dart" as http;
 
 import "../config/api.dart";
 import "../utils/storage.dart";
@@ -9,123 +8,95 @@ import "../utils/storage.dart";
 class PassService {
   /*
   |--------------------------------------------------------------------------
-  | Verify Pass
+  | Authentication Headers
   |--------------------------------------------------------------------------
   */
 
-  Future<Map<String, dynamic>>
-      verifyPass(
+  Future<Map<String, String>> _headers() async {
+    final jwt = await Storage.getToken();
+
+    if (jwt == null || jwt.isEmpty) {
+      throw Exception("You are not authenticated.");
+    }
+
+    return {
+      "Content-Type": "application/json",
+      "Accept": "application/json",
+      "Authorization": "Bearer $jwt",
+    };
+  }
+
+  /*
+  |--------------------------------------------------------------------------
+  | Verify Pass
+  |--------------------------------------------------------------------------
+  |
+  | Uses the authenticated organizer operations session.
+  | Verification does not check the attendee in.
+  |
+  */
+
+  Future<Map<String, dynamic>> verifyPass(
     String token,
   ) async {
-    final jwt =
-        await Storage.getToken();
+    final normalizedToken = token.trim();
 
-    final response =
-        await http.post(
+    if (normalizedToken.isEmpty) {
+      throw Exception("Enter a valid pass token.");
+    }
+
+    final response = await http.post(
       Uri.parse(
-        "${ApiConfig.baseUrl}/passes/verify",
+        "${ApiConfig.baseUrl}/operations/verify-pass",
       ),
-      headers: {
-        "Content-Type":
-            "application/json",
-
-        "Authorization":
-            "Bearer $jwt",
-      },
+      headers: await _headers(),
       body: jsonEncode({
-        "token": token,
+        "token": normalizedToken,
       }),
     );
 
-    return _handleResponse(
-      response,
-    );
+    return _handleResponse(response);
   }
 
   /*
   |--------------------------------------------------------------------------
   | Check In
   |--------------------------------------------------------------------------
+  |
+  | Uses the operations scanner endpoint.
+  | The backend obtains the staff ID, event ID, and station
+  | from the authenticated operations session.
+  |
   */
 
-  Future<Map<String, dynamic>>
-      checkIn(
+  Future<Map<String, dynamic>> checkIn(
     String token, {
     String scanType = "QR",
     String? staffId,
     String? station,
     String? deviceId,
   }) async {
-    /*
-    |--------------------------------------------------------------------------
-    | Validate Staff
-    |--------------------------------------------------------------------------
-    */
+    final normalizedToken = token.trim();
 
-    if (
-      staffId == null ||
-      staffId.trim().isEmpty
-    ) {
-      throw Exception(
-        "Staff session is not available.",
-      );
+    if (normalizedToken.isEmpty) {
+      throw Exception("Invalid pass token.");
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | Authentication
-    |--------------------------------------------------------------------------
-    */
+    // Retain the existing method parameters for compatibility
+    // with ScanProvider. Staff identity is authenticated by
+    // the operations token, not supplied by the client.
 
-    final jwt =
-        await Storage.getToken();
-
-    /*
-    |--------------------------------------------------------------------------
-    | Request
-    |--------------------------------------------------------------------------
-    */
-
-    final response =
-        await http.post(
+    final response = await http.post(
       Uri.parse(
-        "${ApiConfig.baseUrl}/checkin",
+        "${ApiConfig.baseUrl}/operations/scan",
       ),
-      headers: {
-        "Content-Type":
-            "application/json",
-
-        "Authorization":
-            "Bearer $jwt",
-      },
+      headers: await _headers(),
       body: jsonEncode({
-        "token": token,
-
-        "scanType":
-            scanType,
-
-        "staffId":
-            staffId,
-
-        if (
-          station != null &&
-          station.trim().isNotEmpty
-        )
-          "station":
-              station.trim(),
-
-        if (
-          deviceId != null &&
-          deviceId.trim().isNotEmpty
-        )
-          "deviceId":
-              deviceId.trim(),
+        "token": normalizedToken,
       }),
     );
 
-    return _handleResponse(
-      response,
-    );
+    return _handleResponse(response);
   }
 
   /*
@@ -134,92 +105,52 @@ class PassService {
   |--------------------------------------------------------------------------
   */
 
-  Map<String, dynamic>
-      _handleResponse(
+  Map<String, dynamic> _handleResponse(
     http.Response response,
   ) {
-    /*
-    |--------------------------------------------------------------------------
-    | Decode
-    |--------------------------------------------------------------------------
-    */
-
     dynamic decoded;
 
     try {
-      decoded =
-          jsonDecode(
-        response.body,
-      );
+      decoded = jsonDecode(response.body);
     } catch (_) {
       throw Exception(
-        "Invalid server response.",
+        "The server returned an invalid response.",
       );
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | Response Must Be Object
-    |--------------------------------------------------------------------------
-    */
-
-    if (
-      decoded
-          is! Map<String, dynamic>
-    ) {
+    if (decoded is! Map) {
       throw Exception(
-        "Invalid server response.",
+        "The server returned an invalid response.",
       );
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | HTTP Error
-    |--------------------------------------------------------------------------
-    */
+    final body = Map<String, dynamic>.from(decoded);
 
-    if (
-      response.statusCode < 200 ||
-      response.statusCode >= 300
-    ) {
+    if (response.statusCode < 200 ||
+        response.statusCode >= 300) {
       throw Exception(
         _extractErrorMessage(
-          decoded,
+          body,
           response.statusCode,
         ),
       );
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | Backend Error
-    |--------------------------------------------------------------------------
-    */
-
-    if (
-      decoded["success"] ==
-          false
-    ) {
+    if (body["success"] == false) {
       throw Exception(
         _extractErrorMessage(
-          decoded,
+          body,
           response.statusCode,
         ),
       );
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | Success
-    |--------------------------------------------------------------------------
-    */
-
-    return decoded;
+    return body;
   }
 
   /*
   |--------------------------------------------------------------------------
-  | Error Message
+  | Error Messages
   |--------------------------------------------------------------------------
   */
 
@@ -227,50 +158,35 @@ class PassService {
     Map<String, dynamic> body,
     int statusCode,
   ) {
-    final message =
-        body["message"];
+    final message = body["message"];
 
-    if (
-      message is String &&
-      message.trim().isNotEmpty
-    ) {
+    if (message is String && message.trim().isNotEmpty) {
       return message.trim();
     }
 
-    final error =
-        body["error"];
+    final error = body["error"];
 
-    if (
-      error is String &&
-      error.trim().isNotEmpty
-    ) {
+    if (error is String && error.trim().isNotEmpty) {
       return error.trim();
     }
 
-    return switch (statusCode) {
-      400 =>
-        "Invalid request.",
-
-      401 =>
-        "You are not authenticated.",
-
-      403 =>
-        "You do not have permission to perform this action.",
-
-      404 =>
-        "The requested resource was not found.",
-
-      409 =>
-        "This action conflicts with the current state.",
-
-      422 =>
-        "The submitted data is invalid.",
-
-      500 =>
-        "A server error occurred.",
-
-      _ =>
-        "Request failed.",
-    };
+    switch (statusCode) {
+      case 400:
+        return "Invalid request.";
+      case 401:
+        return "Your operations session has expired. Please log in again.";
+      case 403:
+        return "You do not have permission to perform this action.";
+      case 404:
+        return "The requested resource was not found.";
+      case 409:
+        return "This action conflicts with the current state.";
+      case 422:
+        return "The submitted data is invalid.";
+      case 500:
+        return "A server error occurred. Please try again.";
+      default:
+        return "Request failed. Please try again.";
+    }
   }
 }

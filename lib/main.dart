@@ -15,109 +15,80 @@ import "screens/scan/scan_screen.dart";
 import "screens/activity/activity_screen.dart";
 import "screens/announcements/announcement_screen.dart";
 
+// Operations screens
+import "screens/passes/pass_verification_screen.dart";
+import "screens/attendees/attendee_search_screen.dart";
+import "screens/reports/reports_screen.dart";
+import "screens/pulse/event_pulse_screen.dart";
+
 import "theme/app_theme.dart";
 
 void main() {
+  WidgetsFlutterBinding.ensureInitialized();
+
   runApp(
     MultiProvider(
       providers: [
-
         ChangeNotifierProvider(
-          create: (_) =>
-              AuthProvider(),
+          create: (_) => AuthProvider(),
         ),
-
         ChangeNotifierProvider(
-          create: (_) =>
-              ScanProvider(),
+          create: (_) => ScanProvider(),
         ),
-
         ChangeNotifierProvider(
-          create: (_) =>
-              ActivityProvider(),
+          create: (_) => ActivityProvider(),
         ),
-
         ChangeNotifierProvider(
-          create: (_) =>
-              AnnouncementProvider(),
+          create: (_) => AnnouncementProvider(),
         ),
-
         ChangeNotifierProxyProvider2<
             ActivityProvider,
             AnnouncementProvider,
             RealtimeProvider>(
-          create: (_) =>
-              RealtimeProvider(),
-
+          create: (_) => RealtimeProvider(),
           update: (
             context,
             activity,
             announcements,
             realtime,
           ) {
-            realtime ??=
-                RealtimeProvider();
+            final provider = realtime ?? RealtimeProvider();
 
-            realtime.bindActivity(
-              activity,
-            );
+            provider.bindActivity(activity);
+            provider.bindAnnouncements(announcements);
 
-            realtime.bindAnnouncements(
-              announcements,
-            );
-
-            return realtime;
+            return provider;
           },
         ),
       ],
-
-      child:
-          const OrganizerOpsApp(),
+      child: const OrganizerOpsApp(),
     ),
   );
 }
 
-class OrganizerOpsApp
-    extends StatelessWidget {
+class OrganizerOpsApp extends StatelessWidget {
   const OrganizerOpsApp({
     super.key,
   });
 
   @override
-  Widget build(
-    BuildContext context,
-  ) {
+  Widget build(BuildContext context) {
     return MaterialApp(
-      debugShowCheckedModeBanner:
-          false,
-
-      title:
-          "WowYou Operations",
-
-      theme:
-          AppTheme.light,
-
-      initialRoute:
-          "/",
-
+      debugShowCheckedModeBanner: false,
+      title: "WowYou Operations",
+      theme: AppTheme.light,
+      initialRoute: "/",
       routes: {
-        "/": (_) =>
-            const SplashScreen(),
-
-        "/login": (_) =>
-            const AccessCodeScreen(),
-
-        "/dashboard": (_) =>
-            const DashboardScreen(),
-
-        "/scan": (_) =>
-            const ScanScreen(),
-
-        "/activity": (_) =>
-            const ActivityScreen(),
-
-        "/announcements": (_) =>
-            const AnnouncementScreen(),
+        "/": (_) => const SplashScreen(),
+        "/login": (_) => const AccessCodeScreen(),
+        "/dashboard": (_) => const DashboardScreen(),
+        "/scan": (_) => const ScanScreen(),
+        "/verify-pass": (_) => const PassVerificationScreen(),
+        "/search-attendee": (_) => const AttendeeSearchScreen(),
+        "/reports": (_) => const ReportsScreen(),
+        "/activity": (_) => const ActivityScreen(),
+        "/announcements": (_) => const AnnouncementScreen(),
+        "/event-pulse": (_) => const EventPulseScreen(),
       },
     );
   }
