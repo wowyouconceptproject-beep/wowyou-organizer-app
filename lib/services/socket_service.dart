@@ -1,5 +1,5 @@
-import "package:socket_io_client/socket_io_client.dart"
-    as io;
+
+import "package:socket_io_client/socket_io_client.dart" as io;
 
 import "../config/api.dart";
 import "../config/socket_events.dart";
@@ -16,17 +16,14 @@ import "../utils/storage.dart";
 class SocketService {
   SocketService._();
 
-  static final SocketService instance =
-      SocketService._();
+  static final SocketService instance = SocketService._();
 
   io.Socket? _socket;
+  Future<void>? _connecting;
 
-  io.Socket? get socket =>
-      _socket;
+  io.Socket? get socket => _socket;
 
-  bool get connected =>
-      _socket?.connected ??
-      false;
+  bool get connected => _socket?.connected ?? false;
 
   /*
   |--------------------------------------------------------------------------
@@ -35,43 +32,103 @@ class SocketService {
   */
 
   Future<void> connect() async {
-    if (_socket != null) {
+    if (_socket?.connected == true) {
       return;
     }
 
-    final token =
-        await Storage.getToken();
+    if (_connecting != null) {
+      return _connecting;
+    }
 
-    _socket = io.io(
+    _connecting = _createOrReconnect();
+
+    try {
+      await _connecting;
+    } finally {
+      _connecting = null;
+    }
+  }
+
+  Future<void> _createOrReconnect() async {
+    if (_socket != null) {
+      _socket!.connect();
+      return;
+    }
+
+    final token = await Storage.getToken();
+
+    if (token == null || token.isEmpty) {
+      throw StateError(
+        "Cannot connect to realtime services without an authentication token.",
+      );
+    }
+
+    final socket = io.io(
       ApiConfig.baseUrl,
       io.OptionBuilder()
-          .setTransports([
-            "websocket",
-          ])
+          .setTransports(["websocket"])
           .enableReconnection()
-          .setReconnectionAttempts(
-            999999,
-          )
-          .setReconnectionDelay(
-            1000,
-          )
-          .setAuth({
-            "token": token,
-          })
+          .setReconnectionAttempts(999999)
+          .setReconnectionDelay(1000)
+          .setAuth({"token": token})
+          .disableAutoConnect()
           .build(),
     );
 
-    _socket!.connect();
+    _socket = socket;
+    socket.connect();
   }
 
+  /*
+  |--------------------------------------------------------------------------
+  | Explicit Reconnection
+  |--------------------------------------------------------------------------
+  */
+
+  Future<void> reconnect() async {
+    final currentSocket = _socket;
+
+    if (currentSocket == null) {
+      await connect();
+      return;
+    }
+
+    if (currentSocket.connected) {
+      return;
+    }
+
+    currentSocket.connect();
+  }
+
+  /*
+  |--------------------------------------------------------------------------
+  | Connection State
+  |--------------------------------------------------------------------------
+  */
+
+  void onConnect(Function() listener) {
+    _socket?.onConnect((_) => listener());
+  }
+
+  void onDisconnect(Function() listener) {
+    _socket?.onDisconnect((_) => listener());
+  }
+
+  /*
+  |--------------------------------------------------------------------------
+  | Disconnect
+  |--------------------------------------------------------------------------
+  */
+
   void disconnect() {
-    _socket?.clearListeners();
-
-    _socket?.disconnect();
-
-    _socket?.dispose();
+    final currentSocket = _socket;
 
     _socket = null;
+    _connecting = null;
+
+    currentSocket?.clearListeners();
+    currentSocket?.disconnect();
+    currentSocket?.dispose();
   }
 
   /*
@@ -80,11 +137,12 @@ class SocketService {
   |--------------------------------------------------------------------------
   */
 
-  Future<void> joinEvent(
-    String eventId,
-  ) async {
-    final jwt =
-        await Storage.getToken();
+  Future<void> joinEvent(String eventId) async {
+    final jwt = await Storage.getToken();
+
+    if (jwt == null || jwt.isEmpty || !connected) {
+      return;
+    }
 
     _socket?.emit(
       SocketEvents.joinEvent,
@@ -95,34 +153,34 @@ class SocketService {
     );
   }
 
-  void leaveEvent(
-    String eventId,
-  ) {
+  void leaveEvent(String eventId) {
+    if (!connected) return;
+
     _socket?.emit(
       SocketEvents.leaveEvent,
       eventId,
     );
   }
 
-  Future<void> joinOrganizer(
-    String organizerId,
-  ) async {
-    final jwt =
-        await Storage.getToken();
+  Future<void> joinOrganizer(String organizerId) async {
+    final jwt = await Storage.getToken();
+
+    if (jwt == null || jwt.isEmpty || !connected) {
+      return;
+    }
 
     _socket?.emit(
       SocketEvents.joinOrganizer,
       {
-        "organizerId":
-            organizerId,
+        "organizerId": organizerId,
         "token": jwt,
       },
     );
   }
 
-  void leaveOrganizer(
-    String organizerId,
-  ) {
+  void leaveOrganizer(String organizerId) {
+    if (!connected) return;
+
     _socket?.emit(
       SocketEvents.leaveOrganizer,
       organizerId,
@@ -135,19 +193,13 @@ class SocketService {
   |--------------------------------------------------------------------------
   */
 
-  void onAttendance(
-    Function(
-      AttendanceUpdate,
-    ) listener,
-  ) {
+  void onAttendance(Function(AttendanceUpdate) listener) {
     _socket?.on(
       SocketEvents.attendanceUpdated,
       (data) {
         listener(
           AttendanceUpdate.fromJson(
-            Map<String, dynamic>.from(
-              data,
-            ),
+            Map<String, dynamic>.from(data),
           ),
         );
       },
@@ -160,19 +212,13 @@ class SocketService {
   |--------------------------------------------------------------------------
   */
 
-  void onCapacityUpdated(
-    Function(
-      CapacityUpdate,
-    ) listener,
-  ) {
+  void onCapacityUpdated(Function(CapacityUpdate) listener) {
     _socket?.on(
       SocketEvents.capacityUpdated,
       (data) {
         listener(
           CapacityUpdate.fromJson(
-            Map<String, dynamic>.from(
-              data,
-            ),
+            Map<String, dynamic>.from(data),
           ),
         );
       },
@@ -185,19 +231,13 @@ class SocketService {
   |--------------------------------------------------------------------------
   */
 
-  void onActivity(
-    Function(
-      ActivityEvent,
-    ) listener,
-  ) {
+  void onActivity(Function(ActivityEvent) listener) {
     _socket?.on(
       SocketEvents.activityCreated,
       (data) {
         listener(
           ActivityEvent.fromJson(
-            Map<String, dynamic>.from(
-              data,
-            ),
+            Map<String, dynamic>.from(data),
           ),
         );
       },
@@ -210,59 +250,37 @@ class SocketService {
   |--------------------------------------------------------------------------
   */
 
-  void onAnnouncementCreated(
-    Function(
-      Announcement,
-    ) listener,
-  ) {
+  void onAnnouncementCreated(Function(Announcement) listener) {
     _socket?.on(
-      SocketEvents
-          .announcementCreated,
+      SocketEvents.announcementCreated,
       (data) {
         listener(
           Announcement.fromJson(
-            Map<String, dynamic>.from(
-              data,
-            ),
+            Map<String, dynamic>.from(data),
           ),
         );
       },
     );
   }
 
-  void onAnnouncementUpdated(
-    Function(
-      Announcement,
-    ) listener,
-  ) {
+  void onAnnouncementUpdated(Function(Announcement) listener) {
     _socket?.on(
-      SocketEvents
-          .announcementUpdated,
+      SocketEvents.announcementUpdated,
       (data) {
         listener(
           Announcement.fromJson(
-            Map<String, dynamic>.from(
-              data,
-            ),
+            Map<String, dynamic>.from(data),
           ),
         );
       },
     );
   }
 
-  void onAnnouncementDeleted(
-    Function(
-      String,
-    ) listener,
-  ) {
+  void onAnnouncementDeleted(Function(String) listener) {
     _socket?.on(
-      SocketEvents
-          .announcementDeleted,
+      SocketEvents.announcementDeleted,
       (data) {
-        listener(
-          data["id"]
-              .toString(),
-        );
+        listener(data["id"].toString());
       },
     );
   }
@@ -273,38 +291,26 @@ class SocketService {
   |--------------------------------------------------------------------------
   */
 
-  void onStaffOnline(
-    Function(
-      StaffPresence,
-    ) listener,
-  ) {
+  void onStaffOnline(Function(StaffPresence) listener) {
     _socket?.on(
       SocketEvents.staffOnline,
       (data) {
         listener(
           StaffPresence.fromJson(
-            Map<String, dynamic>.from(
-              data,
-            ),
+            Map<String, dynamic>.from(data),
           ),
         );
       },
     );
   }
 
-  void onStaffOffline(
-    Function(
-      StaffPresence,
-    ) listener,
-  ) {
+  void onStaffOffline(Function(StaffPresence) listener) {
     _socket?.on(
       SocketEvents.staffOffline,
       (data) {
         listener(
           StaffPresence.fromJson(
-            Map<String, dynamic>.from(
-              data,
-            ),
+            Map<String, dynamic>.from(data),
           ),
         );
       },
@@ -317,44 +323,16 @@ class SocketService {
   |--------------------------------------------------------------------------
   */
 
-  void onNotification(
-    Function(
-      NotificationEvent,
-    ) listener,
-  ) {
+  void onNotification(Function(NotificationEvent) listener) {
     _socket?.on(
       SocketEvents.notification,
       (data) {
         listener(
           NotificationEvent.fromJson(
-            Map<String, dynamic>.from(
-              data,
-            ),
+            Map<String, dynamic>.from(data),
           ),
         );
       },
-    );
-  }
-
-  /*
-  |--------------------------------------------------------------------------
-  | Lifecycle
-  |--------------------------------------------------------------------------
-  */
-
-  void onConnect(
-    Function() listener,
-  ) {
-    _socket?.onConnect(
-      (_) => listener(),
-    );
-  }
-
-  void onDisconnect(
-    Function() listener,
-  ) {
-    _socket?.onDisconnect(
-      (_) => listener(),
     );
   }
 
