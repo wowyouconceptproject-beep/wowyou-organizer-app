@@ -131,7 +131,6 @@ class _QRCameraState extends State<QRCamera> {
           if (cameraError == null)
             MobileScanner(
               controller: widget.controller,
-              autoStart: false,
               onDetect: _handleDetection,
               errorBuilder: (context, error) {
                 return _buildCameraError(error.toString());
