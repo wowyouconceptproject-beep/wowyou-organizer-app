@@ -1,4 +1,3 @@
-
 import "dart:async";
 
 import "package:flutter/material.dart";
@@ -20,18 +19,20 @@ class QRCamera extends StatefulWidget {
   State<QRCamera> createState() => _QRCameraState();
 }
 
-class _QRCameraState extends State<QRCamera> {
+class _QRCameraState extends State<QRCamera>
+    with WidgetsBindingObserver {
   bool locked = false;
   bool starting = true;
-  bool cameraReady = false;
   String? cameraError;
 
-  bool _disposed = false;
   bool _startingCamera = false;
+  bool _disposed = false;
 
   @override
   void initState() {
     super.initState();
+
+    WidgetsBinding.instance.addObserver(this);
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
@@ -49,9 +50,8 @@ class _QRCameraState extends State<QRCamera> {
     }
 
     if (oldWidget.controller != widget.controller) {
-      cameraReady = false;
-      cameraError = null;
       starting = true;
+      cameraError = null;
 
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
@@ -61,17 +61,24 @@ class _QRCameraState extends State<QRCamera> {
     }
   }
 
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      unawaited(_startCamera());
+    }
+  }
+
   Future<void> _startCamera() async {
-    if (_disposed || _startingCamera) return;
+    if (_disposed || _startingCamera || !mounted) {
+      return;
+    }
 
     _startingCamera = true;
 
-    if (mounted) {
-      setState(() {
-        starting = true;
-        cameraError = null;
-      });
-    }
+    setState(() {
+      starting = true;
+      cameraError = null;
+    });
 
     try {
       await widget.controller.start();
@@ -79,7 +86,6 @@ class _QRCameraState extends State<QRCamera> {
       if (!mounted || _disposed) return;
 
       setState(() {
-        cameraReady = true;
         starting = false;
         cameraError = null;
       });
@@ -87,7 +93,6 @@ class _QRCameraState extends State<QRCamera> {
       if (!mounted || _disposed) return;
 
       setState(() {
-        cameraReady = false;
         starting = false;
         cameraError = error.toString();
       });
@@ -97,19 +102,13 @@ class _QRCameraState extends State<QRCamera> {
   }
 
   void _handleDetection(BarcodeCapture capture) {
-    if (locked || !widget.enabled || !cameraReady) {
-      return;
-    }
+    if (locked || !widget.enabled) return;
 
-    if (capture.barcodes.isEmpty) {
-      return;
-    }
+    if (capture.barcodes.isEmpty) return;
 
     final value = capture.barcodes.first.rawValue;
 
-    if (value == null || value.trim().isEmpty) {
-      return;
-    }
+    if (value == null || value.trim().isEmpty) return;
 
     locked = true;
     widget.onScanned(value.trim());
@@ -118,6 +117,7 @@ class _QRCameraState extends State<QRCamera> {
   @override
   void dispose() {
     _disposed = true;
+    WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
 
@@ -125,97 +125,89 @@ class _QRCameraState extends State<QRCamera> {
   Widget build(BuildContext context) {
     return ClipRRect(
       borderRadius: BorderRadius.circular(16),
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          if (cameraError == null)
-            MobileScanner(
-              controller: widget.controller,
-              onDetect: _handleDetection,
-              errorBuilder: (context, error) {
-                return _buildCameraError(error.toString());
-              },
-            ),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          return SizedBox(
+            width: constraints.maxWidth,
+            height: constraints.maxHeight,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                // Camera preview is rendered directly in the available area.
+                MobileScanner(
+                  controller: widget.controller,
+                  onDetect: _handleDetection,
+                  errorBuilder: (context, error) {
+                    return _buildCameraError(
+                      error.toString(),
+                    );
+                  },
+                ),
 
-          if (starting && cameraError == null)
-            Container(
-              color: const Color(0xff101010),
-              alignment: Alignment.center,
-              child: const Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  CircularProgressIndicator(
-                    color: Colors.white,
-                  ),
-                  SizedBox(height: 16),
-                  Text(
-                    "Starting camera...",
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 14,
+                // Show loading only while starting, not after startup.
+                if (starting && cameraError == null)
+                  const ColoredBox(
+                    color: Colors.black,
+                    child: Center(
+                      child: CircularProgressIndicator(
+                        color: Colors.white,
+                      ),
                     ),
                   ),
-                ],
-              ),
-            ),
 
-          if (cameraError != null)
-            _buildCameraError(cameraError!),
-        ],
+                if (cameraError != null)
+                  _buildCameraError(cameraError!),
+              ],
+            ),
+          );
+        },
       ),
     );
   }
 
   Widget _buildCameraError(String message) {
-    return Container(
+    return ColoredBox(
       color: const Color(0xff171717),
-      padding: const EdgeInsets.all(24),
-      alignment: Alignment.center,
-      child: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(
-              Icons.no_photography_outlined,
-              size: 54,
-              color: Colors.white70,
-            ),
-            const SizedBox(height: 16),
-            const Text(
-              "Camera unavailable",
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 10),
-            const Text(
-              "Check camera permission and make sure no other app "
-              "is using the camera.",
-              textAlign: TextAlign.center,
-              style: TextStyle(
+      child: Center(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(
+                Icons.no_photography_outlined,
+                size: 54,
                 color: Colors.white70,
-                height: 1.5,
               ),
-            ),
-            const SizedBox(height: 12),
-            Text(
-              message,
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                color: Colors.orangeAccent,
-                fontSize: 12,
+              const SizedBox(height: 16),
+              const Text(
+                "Camera preview unavailable",
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
-            ),
-            const SizedBox(height: 20),
-            ElevatedButton.icon(
-              onPressed: starting ? null : _startCamera,
-              icon: const Icon(Icons.refresh),
-              label: const Text("Retry camera"),
-            ),
-          ],
+              const SizedBox(height: 12),
+              Text(
+                message,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: Colors.orangeAccent,
+                  fontSize: 12,
+                ),
+              ),
+              const SizedBox(height: 20),
+              ElevatedButton.icon(
+                onPressed: starting
+                    ? null
+                    : () => unawaited(_startCamera()),
+                icon: const Icon(Icons.refresh),
+                label: const Text("Retry camera"),
+              ),
+            ],
+          ),
         ),
       ),
     );
