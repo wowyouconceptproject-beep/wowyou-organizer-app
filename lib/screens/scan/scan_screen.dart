@@ -1,12 +1,10 @@
 import "package:flutter/material.dart";
 import "package:flutter/services.dart";
-
 import "package:provider/provider.dart";
 
 import "../../providers/auth_provider.dart";
 import "../../providers/scan_provider.dart";
 
-import "../../widgets/camera_overlay.dart";
 import "../../widgets/error_flash.dart";
 import "../../widgets/scan_beep.dart";
 import "../../widgets/success_flash.dart";
@@ -120,51 +118,60 @@ class _ScanViewState extends State<_ScanView> {
       body: SafeArea(
         child: Column(
           children: [
+            // Camera preview area.
             Expanded(
               child: Padding(
                 padding: const EdgeInsets.all(16),
-                child: Stack(
-                  children: [
-                    Positioned.fill(
-                      child: QRCamera(
-                        controller: scan.camera,
-                        enabled: !scan.busy,
-                        onScanned: (token) async {
-                          HapticFeedback.lightImpact();
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(16),
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      // Keep the preview visible without CameraOverlay.
+                      Container(
+                        color: Colors.black,
+                        child: QRCamera(
+                          controller: scan.camera,
+                          enabled: !scan.busy,
+                          onScanned: (token) async {
+                            HapticFeedback.lightImpact();
 
-                          await scan.scanQr(token);
+                            await scan.scanQr(token);
 
-                          if (!mounted) return;
+                            if (!mounted) return;
 
-                          if (scan.result != null) {
-                            await ScanBeep.success();
-                          } else {
-                            await ScanBeep.error();
-                          }
-                        },
+                            if (scan.result != null) {
+                              await ScanBeep.success();
+                            } else {
+                              await ScanBeep.error();
+                            }
+                          },
+                        ),
                       ),
-                    ),
-                    const Positioned.fill(
-                      child: CameraOverlay(),
-                    ),
-                    Positioned.fill(
-                      child: SuccessFlash(
-                        visible: scan.result != null,
+
+                      Positioned.fill(
+                        child: SuccessFlash(
+                          visible: scan.result != null,
+                        ),
                       ),
-                    ),
-                    Positioned.fill(
-                      child: ErrorFlash(
-                        visible: scan.error != null,
+
+                      Positioned.fill(
+                        child: ErrorFlash(
+                          visible: scan.error != null,
+                        ),
                       ),
-                    ),
-                    ScanResultCard(
-                      result: scan.result,
-                      error: scan.error,
-                    ),
-                  ],
+
+                      ScanResultCard(
+                        result: scan.result,
+                        error: scan.error,
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
+
+            // Scanner controls and status.
             Container(
               padding: const EdgeInsets.all(20),
               decoration: const BoxDecoration(
@@ -209,22 +216,28 @@ class _ScanViewState extends State<_ScanView> {
                       ],
                     ),
                   ),
+
                   const SizedBox(height: 16),
+
                   ScannerStatusBar(
                     busy: scan.busy,
                     error: scan.error,
                   ),
+
                   const SizedBox(height: 16),
+
                   ScannerControls(
                     torchOn: scan.torchOn,
                     onTorch: scan.toggleTorch,
                     onManualSearch: () {
-                      // Existing manual-search behavior remains unchanged.
+                      // Preserve existing manual-search behavior.
                     },
                   ),
+
                   if (scan.result != null &&
                       scan.result!.alreadyCheckedIn) ...[
                     const SizedBox(height: 20),
+
                     Container(
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
@@ -250,8 +263,10 @@ class _ScanViewState extends State<_ScanView> {
                       ),
                     ),
                   ],
+
                   if (scan.capacity != null) ...[
                     const SizedBox(height: 20),
+
                     Container(
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
@@ -268,7 +283,9 @@ class _ScanViewState extends State<_ScanView> {
                               fontWeight: FontWeight.bold,
                             ),
                           ),
+
                           const SizedBox(height: 10),
+
                           Text(
                             "${scan.capacity!.currentOccupancy} / "
                             "${scan.capacity!.capacity}",
@@ -277,7 +294,9 @@ class _ScanViewState extends State<_ScanView> {
                               fontWeight: FontWeight.bold,
                             ),
                           ),
+
                           const SizedBox(height: 4),
+
                           Text(
                             "${scan.capacity!.occupancyPercentage.toStringAsFixed(1)}%",
                             style: const TextStyle(
