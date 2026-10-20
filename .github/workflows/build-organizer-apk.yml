@@ -29,19 +29,25 @@ jobs:
           flutter-version: "3.35.2"
           cache: true
 
-      - name: Install Android SDK Components
-        uses: android-actions/setup-android@v3
-
-      - name: Install Required Android NDK
+      - name: Configure Android SDK
+        shell: bash
         run: |
-          sdkmanager --install "ndk;27.0.12077973"
-          sdkmanager --licenses
+          echo "ANDROID_SDK_ROOT=${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}" >> "$GITHUB_ENV"
+          echo "${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}/cmdline-tools/latest/bin" >> "$GITHUB_PATH"
+          echo "${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}/platform-tools" >> "$GITHUB_PATH"
+
+      - name: Accept Android SDK Licenses
+        run: yes | sdkmanager --licenses || true
+
+      - name: Install Android NDK
+        run: sdkmanager --install "ndk;27.0.12077973"
 
       - name: Verify Android NDK
+        shell: bash
         run: |
-          test -d "$ANDROID_SDK_ROOT/ndk/27.0.12077973"
-          test -f "$ANDROID_SDK_ROOT/ndk/27.0.12077973/source.properties"
-          cat "$ANDROID_SDK_ROOT/ndk/27.0.12077973/source.properties"
+          NDK_PATH="$ANDROID_SDK_ROOT/ndk/27.0.12077973"
+          test -f "$NDK_PATH/source.properties"
+          cat "$NDK_PATH/source.properties"
 
       - name: Install Dependencies
         run: flutter pub get
