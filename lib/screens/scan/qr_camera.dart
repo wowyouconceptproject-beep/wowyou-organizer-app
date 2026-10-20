@@ -92,12 +92,10 @@ class _QRCameraState extends State<QRCamera>
 
     _startingCamera = true;
 
-    if (mounted) {
-      setState(() {
-        starting = true;
-        cameraError = null;
-      });
-    }
+    setState(() {
+      starting = true;
+      cameraError = null;
+    });
 
     debugPrint("[QR] Starting camera...");
 
@@ -151,7 +149,9 @@ class _QRCameraState extends State<QRCamera>
       final value = barcode.rawValue;
 
       if (value == null || value.trim().isEmpty) {
-        debugPrint("[QR] QR detected, but its decoded value is empty.");
+        debugPrint(
+          "[QR] QR detected, but its decoded value is empty.",
+        );
         continue;
       }
 
@@ -170,7 +170,9 @@ class _QRCameraState extends State<QRCamera>
 
       locked = true;
 
-      debugPrint("[QR] Sending decoded QR to ScanProvider.");
+      debugPrint(
+        "[QR] Sending decoded QR token to ScanProvider.",
+      );
 
       try {
         widget.onScanned(token);
@@ -192,8 +194,7 @@ class _QRCameraState extends State<QRCamera>
 
     debugPrint("[QR] Scanner disposed.");
 
-    // The controller is supplied by the parent widget.
-    // Its owner remains responsible for disposing it.
+    // The parent owns and disposes the controller.
     super.dispose();
   }
 
@@ -206,10 +207,11 @@ class _QRCameraState extends State<QRCamera>
         children: [
           MobileScanner(
             controller: widget.controller,
-            autoStart: false,
             onDetect: _handleDetection,
             errorBuilder: (context, error) {
-              debugPrint("[QR] CAMERA PREVIEW ERROR: $error");
+              debugPrint(
+                "[QR] CAMERA PREVIEW ERROR: $error",
+              );
               return _buildCameraError(error.toString());
             },
           ),
@@ -224,7 +226,9 @@ class _QRCameraState extends State<QRCamera>
             ),
           if (cameraError != null)
             _buildCameraError(cameraError!),
-          if (!starting && cameraError == null && widget.enabled)
+          if (!starting &&
+              cameraError == null &&
+              widget.enabled)
             IgnorePointer(
               child: Center(
                 child: Container(
@@ -240,7 +244,9 @@ class _QRCameraState extends State<QRCamera>
                 ),
               ),
             ),
-          if (!widget.enabled && cameraError == null && !starting)
+          if (!widget.enabled &&
+              cameraError == null &&
+              !starting)
             const ColoredBox(
               color: Color(0x66000000),
               child: Center(
