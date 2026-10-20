@@ -1,3 +1,4 @@
+
 import "dart:async";
 
 import "package:flutter/material.dart";
@@ -35,7 +36,7 @@ class _QRCameraState extends State<QRCamera>
 
     WidgetsBinding.instance.addObserver(this);
 
-    debugPrint("[QR] Scanner widget initialized.");
+    debugPrint("[QR] Scanner initialized.");
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
@@ -48,10 +49,11 @@ class _QRCameraState extends State<QRCamera>
   void didUpdateWidget(covariant QRCamera oldWidget) {
     super.didUpdateWidget(oldWidget);
 
-    if (widget.enabled && !oldWidget.enabled) {
+    if (widget.enabled != oldWidget.enabled) {
       locked = false;
       _lastLoggedValue = null;
-      debugPrint("[QR] Scanner re-enabled.");
+
+      debugPrint("[QR] Scanner enabled: ${widget.enabled}");
     }
 
     if (oldWidget.controller != widget.controller) {
@@ -72,6 +74,14 @@ class _QRCameraState extends State<QRCamera>
 
     if (state == AppLifecycleState.resumed) {
       unawaited(_startCamera());
+      return;
+    }
+
+    if (state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.paused ||
+        state == AppLifecycleState.detached ||
+        state == AppLifecycleState.hidden) {
+      unawaited(_stopCamera());
     }
   }
 
@@ -82,12 +92,14 @@ class _QRCameraState extends State<QRCamera>
 
     _startingCamera = true;
 
-    setState(() {
-      starting = true;
-      cameraError = null;
-    });
+    if (mounted) {
+      setState(() {
+        starting = true;
+        cameraError = null;
+      });
+    }
 
-    debugPrint("[QR] Starting camera.");
+    debugPrint("[QR] Starting camera...");
 
     try {
       await widget.controller.start();
@@ -99,7 +111,7 @@ class _QRCameraState extends State<QRCamera>
         cameraError = null;
       });
 
-      debugPrint("[QR] Camera started successfully.");
+      debugPrint("[QR] Camera started.");
     } catch (error, stackTrace) {
       debugPrint("[QR] CAMERA START ERROR: $error");
       debugPrintStack(stackTrace: stackTrace);
@@ -115,19 +127,31 @@ class _QRCameraState extends State<QRCamera>
     }
   }
 
-  void _handleDetection(BarcodeCapture capture) {
-    if (!widget.enabled || locked) return;
+  Future<void> _stopCamera() async {
+    if (_disposed) return;
 
-    if (capture.barcodes.isEmpty) return;
+    try {
+      await widget.controller.stop();
+      debugPrint("[QR] Camera stopped.");
+    } catch (error) {
+      debugPrint("[QR] CAMERA STOP ERROR: $error");
+    }
+  }
+
+  void _handleDetection(BarcodeCapture capture) {
+    if (!widget.enabled || locked || _disposed) {
+      return;
+    }
 
     for (final barcode in capture.barcodes) {
+      if (barcode.format != BarcodeFormat.qrCode) {
+        continue;
+      }
+
       final value = barcode.rawValue;
 
       if (value == null || value.trim().isEmpty) {
-        debugPrint(
-          "[QR] Barcode detected, but rawValue is empty. "
-          "Format: ${barcode.format}",
-        );
+        debugPrint("[QR] QR detected, but its decoded value is empty.");
         continue;
       }
 
@@ -144,16 +168,19 @@ class _QRCameraState extends State<QRCamera>
         );
       }
 
-      if (barcode.format != BarcodeFormat.qrCode) {
-        debugPrint("[QR] Ignoring non-QR barcode.");
-        continue;
-      }
-
       locked = true;
 
-      debugPrint("[QR] Passing decoded QR token to ScanProvider.");
+      debugPrint("[QR] Sending decoded QR to ScanProvider.");
 
-      widget.onScanned(token);
+      try {
+        widget.onScanned(token);
+      } catch (error, stackTrace) {
+        locked = false;
+
+        debugPrint("[QR] SCAN CALLBACK ERROR: $error");
+        debugPrintStack(stackTrace: stackTrace);
+      }
+
       return;
     }
   }
@@ -162,7 +189,11 @@ class _QRCameraState extends State<QRCamera>
   void dispose() {
     _disposed = true;
     WidgetsBinding.instance.removeObserver(this);
-    debugPrint("[QR] Scanner widget disposed.");
+
+    debugPrint("[QR] Scanner disposed.");
+
+    // The controller is supplied by the parent widget.
+    // Its owner remains responsible for disposing it.
     super.dispose();
   }
 
@@ -170,37 +201,60 @@ class _QRCameraState extends State<QRCamera>
   Widget build(BuildContext context) {
     return ClipRRect(
       borderRadius: BorderRadius.circular(16),
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          return SizedBox(
-            width: constraints.maxWidth,
-            height: constraints.maxHeight,
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                MobileScanner(
-                  controller: widget.controller,
-                  onDetect: _handleDetection,
-                  errorBuilder: (context, error) {
-                    debugPrint("[QR] CAMERA PREVIEW ERROR: $error");
-                    return _buildCameraError(error.toString());
-                  },
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          MobileScanner(
+            controller: widget.controller,
+            autoStart: false,
+            onDetect: _handleDetection,
+            errorBuilder: (context, error) {
+              debugPrint("[QR] CAMERA PREVIEW ERROR: $error");
+              return _buildCameraError(error.toString());
+            },
+          ),
+          if (starting && cameraError == null)
+            const ColoredBox(
+              color: Colors.black,
+              child: Center(
+                child: CircularProgressIndicator(
+                  color: Colors.white,
                 ),
-                if (starting && cameraError == null)
-                  const ColoredBox(
-                    color: Colors.black,
-                    child: Center(
-                      child: CircularProgressIndicator(
-                        color: Colors.white,
-                      ),
-                    ),
-                  ),
-                if (cameraError != null)
-                  _buildCameraError(cameraError!),
-              ],
+              ),
             ),
-          );
-        },
+          if (cameraError != null)
+            _buildCameraError(cameraError!),
+          if (!starting && cameraError == null && widget.enabled)
+            IgnorePointer(
+              child: Center(
+                child: Container(
+                  width: 240,
+                  height: 240,
+                  decoration: BoxDecoration(
+                    border: Border.all(
+                      color: Colors.white,
+                      width: 3,
+                    ),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                ),
+              ),
+            ),
+          if (!widget.enabled && cameraError == null && !starting)
+            const ColoredBox(
+              color: Color(0x66000000),
+              child: Center(
+                child: Text(
+                  "Scanner paused",
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }
@@ -240,8 +294,9 @@ class _QRCameraState extends State<QRCamera>
               ),
               const SizedBox(height: 20),
               ElevatedButton.icon(
-                onPressed:
-                    starting ? null : () => unawaited(_startCamera()),
+                onPressed: _startingCamera
+                    ? null
+                    : () => unawaited(_startCamera()),
                 icon: const Icon(Icons.refresh),
                 label: const Text("Retry camera"),
               ),
