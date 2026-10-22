@@ -63,9 +63,11 @@ class PassService {
   | Check In
   |--------------------------------------------------------------------------
   |
-  | Uses the operations scanner endpoint.
-  | The backend obtains the staff ID, event ID, and station
-  | from the authenticated operations session.
+  | QR: Sends the rotating QR credential.
+  | NFC: Sends the permanent signed pass credential.
+  |
+  | Staff identity is obtained from the authenticated
+  | operations session on the backend.
   |
   */
 
@@ -82,9 +84,14 @@ class PassService {
       throw Exception("Invalid pass token.");
     }
 
-    // Retain the existing method parameters for compatibility
-    // with ScanProvider. Staff identity is authenticated by
-    // the operations token, not supplied by the client.
+    final normalizedScanType = scanType.trim().toUpperCase();
+
+    if (normalizedScanType != "QR" &&
+        normalizedScanType != "NFC") {
+      throw Exception(
+        "Unsupported scan type. Use QR or NFC.",
+      );
+    }
 
     final response = await http.post(
       Uri.parse(
@@ -93,6 +100,7 @@ class PassService {
       headers: await _headers(),
       body: jsonEncode({
         "token": normalizedToken,
+        "scanType": normalizedScanType,
       }),
     );
 
@@ -173,18 +181,25 @@ class PassService {
     switch (statusCode) {
       case 400:
         return "Invalid request.";
+
       case 401:
         return "Your operations session has expired. Please log in again.";
+
       case 403:
         return "You do not have permission to perform this action.";
+
       case 404:
         return "The requested resource was not found.";
+
       case 409:
         return "This action conflicts with the current state.";
+
       case 422:
         return "The submitted data is invalid.";
+
       case 500:
         return "A server error occurred. Please try again.";
+
       default:
         return "Request failed. Please try again.";
     }
